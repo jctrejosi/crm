@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Restaura la réplica de analytics (db-campaigns) en el contenedor analytics_postgres.
+# Restaura la réplica de analytics (crm/db) en el contenedor analytics_postgres.
 #
 # Uso:
-#   bash db-campaigns/restore.sh                       # .backup más reciente, o reensambla las partes
-#   bash db-campaigns/restore.sh ruta/al/dump.backup   # dump concreto
-#   DB_CONTAINER=analytics_postgres DB_NAME=analytics bash db-campaigns/restore.sh
+#   bash db/restore.sh                       # .backup más reciente, o reensambla las partes
+#   bash db/restore.sh ruta/al/dump.backup   # dump concreto
+#   DB_CONTAINER=analytics_postgres DB_NAME=analytics bash db/restore.sh
 #
 # Si no hay dump completo (solo las partes versionadas), las reensambla y
 # comprueba el sha256 del volcado completo. Al final verifica conteos.
@@ -38,14 +38,16 @@ else
     WORK="$FULL"
     SHAFILE="$FULL.sha256"
   else
-    mapfile -t PARTS < <(ls -1 "$BKDIR"/*.backup.part-* 2>/dev/null | sort)
-    if [ "${#PARTS[@]}" -eq 0 ]; then
+    # Con varios backups en la carpeta, usa el conjunto de partes más reciente.
+    LATEST="$(ls -1t "$BKDIR"/*.backup.part-* 2>/dev/null | head -1 || true)"
+    if [ -z "$LATEST" ]; then
       echo "✘ No encontré dump completo ni partes en $BKDIR" >&2
-      echo "  Uso: bash db-campaigns/restore.sh <ruta.backup>" >&2
+      echo "  Uso: bash db/restore.sh <ruta.backup>" >&2
       exit 1
     fi
-    STEM="${PARTS[0]%.part-*}"
-    echo "→ Reensamblando ${#PARTS[@]} partes en $TMP ..."
+    STEM="${LATEST%.part-*}"
+    mapfile -t PARTS < <(ls -1 "$STEM.part-"* | sort)
+    echo "→ Reensamblando ${#PARTS[@]} partes de $(basename "$STEM") en $TMP ..."
     cat "${PARTS[@]}" > "$TMP"
     WORK="$TMP"
     SHAFILE="$STEM.sha256"
@@ -61,7 +63,7 @@ if [ -f "$SHAFILE" ]; then
     echo "✘ El volcado NO coincide con su sha256." >&2
     echo "  esperado: $EXPECTED" >&2
     echo "  obtenido: $ACTUAL" >&2
-    echo "  Suele ser por una parte faltante. Copia db-campaigns/backups/ completo." >&2
+    echo "  Suele ser por una parte faltante. Copia db/backups/ completo." >&2
     rm -f "$TMP"
     exit 1
   fi
@@ -71,7 +73,7 @@ fi
 # ── 3. El contenedor debe existir ─────────────────────────────────────────────
 if ! docker inspect -f '{{.State.Running}}' "$CONTAINER" >/dev/null 2>&1; then
   echo "✘ El contenedor $CONTAINER no existe/está parado." >&2
-  echo "  Levántalo: cd db-campaigns && docker compose up -d --wait" >&2
+  echo "  Levántalo: cd db && docker compose up -d --wait" >&2
   exit 1
 fi
 

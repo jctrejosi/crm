@@ -32,8 +32,33 @@ services:
       timeout: 3s
       retries: 12
 
+  # BD OPERATIVA del CRM (campañas, catálogo, pedidos, clientes, usuarios).
+  # Es propia del proyecto: ya NO comparte la BD del ecommerce.
+  # La migración inicial (copia desde la BD del ecommerce) se hace con:
+  #   bash crm/db/migrate-from-ecommerce.sh
+  crm-postgres:
+    image: postgis/postgis:16-3.4
+    container_name: crm_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: crm
+    ports:
+      - "5437:5432"
+    volumes:
+      - crm_postgres_data:/var/lib/postgresql/data
+      - ./init-operational.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d crm"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
 volumes:
   analytics_postgres_data:
     # Nombre fijo: si ya existe (máquina actual) se reutiliza con sus datos;
     # si no existe (PC nuevo), compose lo crea vacío.
     name: analytics_postgres_data
+  crm_postgres_data:
+    name: crm_postgres_data

@@ -1,4 +1,4 @@
-# db-campaigns/ — PostgreSQL de analytics (campañas y segmentación)
+# db/ — PostgreSQL de analytics (campañas y segmentación)
 
 Réplica de solo lectura del legado **Advantage** (los `.ADT` pasados a Postgres)
 que alimenta la **segmentación** de campañas del panel `Interface web analytics`.
@@ -33,7 +33,7 @@ node dev.js --stop     # detiene los servicios (las BDs docker siguen)
 O solo la BD:
 
 ```bash
-cd db-campaigns && docker compose up -d --wait
+cd db && docker compose up -d --wait
 ```
 
 Conexión: `postgresql://postgres:postgres@localhost:5436/analytics`
@@ -46,7 +46,7 @@ El volcado completo (~350 MB) **no** se versiona; se **trocea en partes de 45 MB
 del volcado completo sí se versionan.
 
 ```sh
-cd db-campaigns/backups
+cd db/backups
 F=analytics_$(date +%F).backup
 docker exec analytics_postgres pg_dump -U postgres -d analytics -Fc -Z9 \
   --no-owner --no-privileges > "$F"
@@ -61,29 +61,31 @@ Inventario, reensamblado y verificación paso a paso: [`backups/README.md`](./ba
 **Desde el backup** (sobrescribe la BD `analytics`):
 
 ```sh
-bash db-campaigns/restore.sh                          # dump completo o reensambla las partes
-bash db-campaigns/restore.sh backups/analytics_2026-09-29.backup
+bash db/restore.sh                          # dump completo o reensambla las partes
+bash db/restore.sh backups/analytics_2026-09-29.backup
 ```
 
 El script verifica el `sha256`, restaura con `pg_restore` y comprueba los conteos.
 Si solo están las **partes** versionadas (clon nuevo), las **reensambla** primero.
 
-O desde el launcher (levanta `db-campaigns` y restaura la copia de una):
+El lanzador lo hace solo: al levantar `db`, si el volumen aún no tiene datos,
+`dev.js` ejecuta `restore.sh` (usa el `.backup` completo o reensambla las partes,
+valida el sha256 y verifica los conteos) antes de arrancar el resto de servicios.
 
 ```sh
-node dev.js --migration-campaigns     # usa el .backup o reensambla las partes; verifica y sale
+node dev.js            # monta la BD y, si está vacía, la restaura de db/backups
 ```
 
 **Volumen vacío (PC nuevo):**
 
 ```bash
-cd db-campaigns && docker compose up -d --wait
-bash db-campaigns/restore.sh
+cd db && docker compose up -d --wait
+bash db/restore.sh
 docker exec analytics_postgres psql -U postgres -d analytics \
   -c "SELECT count(*) FROM analytics.vw_rfm_clientes;"   # → 81997
 ```
 
-**Recrear solo el esquema** (sin datos): `docker exec -i analytics_postgres psql -U postgres -d analytics < db-campaigns/schema.sql`
+**Recrear solo el esquema** (sin datos): `docker exec -i analytics_postgres psql -U postgres -d analytics < db/schema.sql`
 
 > Si no tienes el dump, ver el plan de reconstrucción en
 > [`MIGRATION.md` §6](./MIGRATION.md) (re-extraer del legado ADS).

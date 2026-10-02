@@ -8,18 +8,22 @@ puerto 5436). Como el volcado pesa **~346 MB**, va **troceado** en partes de
   volcado completo (`*.backup.sha256`).
 - **No se versionan**: el volcado completo (`*.backup`, ver `.gitignore`).
 
-## Inventario — `analytics_2026-09-29`
+## Inventario — `analytics_2026-10-02`
 
 | Archivo | Tamaño |
 |---|---|
-| `analytics_2026-09-29.backup.sha256` | 94 B (hash del volcado completo) |
-| `analytics_2026-09-29.backup.part-000` … `-006` | 47.185.920 B c/u (45 MB) |
-| `analytics_2026-09-29.backup.part-007` | 32.497.176 B |
-| `analytics_2026-09-29.backup` *(local, no versionado)* | 362.798.616 B (~346 MB) |
+| `analytics_2026-10-02.backup.sha256` | 94 B (hash del volcado completo) |
+| `analytics_2026-10-02.backup.part-000` … `-006` | 47.185.920 B c/u (45 MB) |
+| `analytics_2026-10-02.backup.part-007` | 32.497.176 B |
+| `analytics_2026-10-02.backup` *(local, no versionado)* | 362.798.616 B (~346 MB) |
 
-- **sha256 del volcado completo**: `7adb0dff189e553b9784103cbd6cc3c9abdeff9f4060d51c602324ca112a3331`
+- **sha256 del volcado completo**: `27e984c997c1328edcb1faf3dcd75a3044ff245926d6c95eba08580c4bfad194`
 - **8 partes**; `split -b 45M`.
-- Verificado el 2026-09-29 restaurando en una base temporal (`analytics_verify`).
+- Verificado el 2026-10-02 reensamblando las partes y restaurando en una base
+  temporal (`analytics_verify`): `pg_restore` exit=0 y conteos idénticos al original.
+
+> La carpeta puede conservar el backup anterior `analytics_2026-09-29.*`
+> (mismos datos). Al reensamblar se elige el conjunto de partes más reciente.
 
 Conteos tras restaurar (deben coincidir con el original):
 
@@ -33,8 +37,8 @@ Conteos tras restaurar (deben coincidir con el original):
 ## Reensamblar las partes
 
 ```sh
-cd db-campaigns/backups
-cat analytics_2026-09-29.backup.part-* > /tmp/analytics.backup
+cd db/backups
+cat analytics_2026-10-02.backup.part-* > /tmp/analytics.backup
 
 # comprobar integridad (debe imprimir el mismo hash de arriba)
 sha256sum /tmp/analytics.backup
@@ -47,17 +51,17 @@ sha256sum /tmp/analytics.backup
 
 ```sh
 # desde el repo (reensambla si solo hay partes):
-bash db-campaigns/restore.sh
+bash db/restore.sh
 
 # o con el volcado explícito:
-bash db-campaigns/restore.sh backups/analytics_2026-09-29.backup
+bash db/restore.sh backups/analytics_2026-10-02.backup
 ```
 
 ## Generar un backup nuevo
 
 ```sh
-cd /home/jk/Proyectos/dsi/ecommerce/db-campaigns/backups
-F=analytics_$(date +%F).backup
+cd db/backups
+F=analytics_FECHA.backup   # p. ej. analytics_2026-10-02.backup
 
 # 1. Volcado completo (formato custom, portable entre versiones)
 docker exec analytics_postgres pg_dump -U postgres -d analytics -Fc -Z9 \

@@ -22,8 +22,9 @@
  * Dependencias externas (no las levanta este script):
  *   - ML Astaroth: clustering :8010, xgboost :8011, uplift :8012 (leen crm/db).
  *   - SMS (Vassago/sms_service) para la prueba de envío.
- *   - BD operativa: el CRM comparte la BD del ecommerce (DATABASE_URL en
- *     crm/backend/.env.development.local).
+ *
+ * Bases de datos propias del CRM (crm/db, docker):
+ *   crm :5437 (operativa) · analytics :5436 (réplica del legado, la leen los MLs).
  *
  * Logs: crm/logs/*.log · PIDs: crm/logs/.pids.json.
  */
@@ -36,7 +37,13 @@ const ROOT = __dirname;
 const LOGS_DIR = path.join(ROOT, "logs");
 const PIDS_FILE = path.join(LOGS_DIR, ".pids.json");
 
+// Permiten apuntar la migración a otro contenedor/BD (restore.sh usa los mismos).
+const DB_CONTAINER = process.env.DB_CONTAINER || "analytics_postgres";
+const DB_NAME = process.env.DB_NAME || "analytics";
+
 const SERVICES = [
+  // `db` levanta el compose de crm/db, que trae LAS DOS bases del proyecto:
+  //   analytics :5436 (réplica del ML) · crm :5437 (operativa: campañas, catálogo…)
   { name: "db", port: 5436, kind: "docker", dir: "db" },
   { name: "backend", port: 3100, kind: "node", dir: "backend", install: ["npm", "install"], dev: ["npm", "run", "dev"], prod: ["npm", "run", "start:prod"] },
   { name: "web", port: 8444, kind: "node", dir: "interface web", install: ["pnpm", "install"], dev: ["pnpm", "run", "dev"], prod: ["pnpm", "run", "preview"] },
@@ -129,6 +136,25 @@ function ensureNodeDeps(svc) {
   return true;
 }
 
+/** Si el volumen de `analytics` está vacío, restaura el dump versionado (db/backups). */
+function restoreAnalyticsIfEmpty() {
+  const q = spawnSync(
+    "docker",
+    ["exec", DB_CONTAINER, "psql", "-U", "postgres", "-d", DB_NAME, "-tAc", "SELECT count(*) FROM pos.clientes"],
+    { encoding: "utf8", timeout: 20000 },
+  );
+  const count = (q.stdout || "").trim();
+  if (q.status === 0 && count && count !== "0") return; // ya tiene datos
+
+  console.log(`${C.db}[db]${C.reset} 📦 BD analytics vacía → restaurando desde db/backups (puede tardar)...`);
+  const r = spawnSync("bash", ["restore.sh"], {
+    cwd: path.join(ROOT, "db"), stdio: "inherit", timeout: 900000,
+    env: { ...process.env, DB_CONTAINER, DB_NAME },
+  });
+  if (r.status === 0) console.log(`${C.db}[db]${C.reset} ✅ BD analytics restaurada`);
+  else console.warn(`${C.db}[db]${C.reset} ⚠️  no se pudo restaurar analytics (ver db/backups/README.md)`);
+}
+
 // ── Arranque ────────────────────────────────────────────────
 
 function startService(svc, mode) {
@@ -140,6 +166,7 @@ function startService(svc, mode) {
       cwd: path.join(ROOT, svc.dir), stdio: "ignore", timeout: 180000,
     });
     if (r.status !== 0) console.warn(`${color}[${svc.name}]${C.reset} ⚠️  no se pudo levantar (¿Docker?)`);
+    else if (svc.name === "db") restoreAnalyticsIfEmpty();
     return null; // docker no se registra en pids
   }
 
@@ -209,7 +236,7 @@ function printHelp() {
       "  node crm/dev.js [flags]",
       "",
       "SELECCIÓN (sin flags = todo)",
-      "  --db         PostgreSQL analytics (docker)  :5436",
+      "  --db         PostgreSQL del CRM (docker): analytics :5436 + crm :5437",
       "  --backend    NestJS del CRM                 :3100",
       "  --web        Interface web (Vite)           :8444",
       "  --ia         ia-service (FastAPI)           :8002",
@@ -223,9 +250,15 @@ function printHelp() {
       "  node_modules (backend/web) y .venv (ia) se instalan solos si faltan.",
       "",
       "DEPENDENCIAS EXTERNAS",
-      "  ML Astaroth (clustering :8010 · xgboost :8011 · uplift :8012) lee crm/db.",
+      "  ML Astaroth (clustering :8010 · xgboost :8011 · uplift :8012) lee la BD analytics (:5436).",
       "  SMS: Vassago/sms_service (VITE_SMS_API_URL en crm/interface web/.env).",
-      "  BD operativa: compartida con el ecommerce (DATABASE_URL del backend).",
+      "",
+      "BASES DE DATOS (propias del CRM, en crm/db)",
+      "  crm       :5437  operativa: campañas, catálogo, pedidos, clientes, usuarios.",
+      "  analytics :5436  réplica del legado; la leen los modelos de ML.",
+      "  Si el volumen de analytics está vacío, --db lo restaura desde db/backups.",
+      "  Migrar/refrescar la operativa desde el ecommerce:",
+      "    bash crm/db/migrate-from-ecommerce.sh",
       "",
       "Logs: crm/logs/*.log · PIDs: crm/logs/.pids.json",
     ].join("\n"),
@@ -264,7 +297,8 @@ async function main() {
   console.log("  WEB      → http://localhost:8444");
   console.log("  BACKEND  → http://localhost:3100  (docs: /api/docs)");
   console.log("  IA       → http://localhost:8002/docs");
-  console.log("  DB       → PostgreSQL localhost:5436 (docker, analytics)");
+  console.log("  DB CRM   → PostgreSQL localhost:5437 (docker, operativa)");
+  console.log("  DB ML    → PostgreSQL localhost:5436 (docker, réplica analytics)");
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
   console.log("Logs: crm/logs/*.log");
   console.log("Detener: node crm/dev.js --stop\n");
