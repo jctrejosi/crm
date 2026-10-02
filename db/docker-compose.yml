@@ -1,0 +1,39 @@
+# PostgreSQL de ANALYTICS — réplica del legado Advantage para campañas/segmentación.
+#
+# - Puerto: 5436 (la BD transaccional del ecommerce sigue en 5432, ver db/docker/)
+# - Usuario/BD: postgres / analytics
+# - El volumen reutiliza `analytics_postgres_data` (si no existe en la máquina,
+#   se crea vacío — restaura el dump para poblarlo, ver README.md).
+#
+# Se levanta con:  node crm/dev.js         (o: docker compose up -d --wait)
+# Se detiene con:  docker compose stop
+#
+# `name` fija el proyecto de compose: sin él se derivaría del directorio ("db") y,
+# al tener `container_name` fijo, chocaría con el contenedor/volumen existentes
+# (creados por el proyecto "db-campaigns").
+name: db-campaigns
+
+services:
+  analytics-postgres:
+    image: postgres:16-alpine
+    container_name: analytics_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: analytics
+    ports:
+      - "5436:5432"
+    volumes:
+      - analytics_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d analytics"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+volumes:
+  analytics_postgres_data:
+    # Nombre fijo: si ya existe (máquina actual) se reutiliza con sus datos;
+    # si no existe (PC nuevo), compose lo crea vacío.
+    name: analytics_postgres_data

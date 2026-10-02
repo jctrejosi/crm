@@ -1,0 +1,34 @@
+# Dependencias
+node_modules/
+.vite/
+dist/
+build/
+
+# Archivos de entorno
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Cache
+.eslintcache
+.prettiercache
+*.tsbuildinfo

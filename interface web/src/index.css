@@ -1,0 +1,183 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,opsz,wght@0,6..13,300..800;1,6..13,300..800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import 'tailwindcss';
+
+/* Tailwind v4 deja los botones con cursor:default; los devolvemos a pointer. */
+@layer base {
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  [role='switch']:not([aria-disabled='true']),
+  summary {
+    cursor: pointer;
+  }
+}
+
+* { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; }
+code, kbd, .mono { font-family: 'JetBrains Mono', monospace; }
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+.drag-handle:hover { cursor: grab; }
+.drag-handle:active { cursor: grabbing; }
+
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Entrada de la alerta flotante del envío de prueba (toast). */
+@keyframes alertPop {
+  from { opacity: 0; transform: translateY(-12px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.animate-alert-pop {
+  animation: alertPop 0.22s ease-out;
+}
+
+@keyframes softPulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-amber-400) 50%, transparent); }
+  50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--color-amber-400) 0%, transparent); }
+}
+.animate-soft-pulse {
+  animation: softPulse 2.4s ease-in-out infinite;
+}
+
+/* Brillo que barre el botón (efecto "shine") para llamar la atención. Se usa
+   en el botón "¿Cómo se escogieron los clientes?" y se apaga la primera vez
+   que se abre el modal. Necesita overflow oculto para no salirse. */
+@keyframes btnShine {
+  0%   { transform: translateX(-160%) skewX(-20deg); }
+  60%  { transform: translateX(260%) skewX(-20deg); }
+  100% { transform: translateX(260%) skewX(-20deg); }
+}
+.animate-btn-shine {
+  position: relative;
+  overflow: hidden;
+}
+.animate-btn-shine::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 45%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.75),
+    transparent
+  );
+  transform: translateX(-160%) skewX(-20deg);
+  animation: btnShine 3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Temas de acento.
+   Tailwind v4 compila las utilidades a `var(--color-amber-N)` (y
+   `var(--color-orange-N)` en los degradados), así que redefinir esas
+   variables por tema recolorea toda la interfaz sin tocar las clases.
+   El tema activo se marca en `<html data-theme="...">` (ver theme.tsx).
+   El tema "amber" es el por defecto de Tailwind y no necesita override.
+   ───────────────────────────────────────────────────────────── */
+
+/* Valores por defecto (tema ámbar / sin tema). */
+:root {
+  --app-bg: #f9fafb;      /* fondo principal de la app (antes bg-gray-50) */
+  --app-sidebar: #0c0c0d; /* fondo del sidebar */
+  --app-footer: #111827;  /* fondo del footer institucional */
+}
+
+[data-theme="blue"] {
+  --color-amber-50: #eff6ff;
+  --color-amber-100: #dbeafe;
+  --color-amber-200: #bfdbfe;
+  --color-amber-300: #93c5fd;
+  --color-amber-400: #60a5fa;
+  --color-amber-500: #3b82f6;
+  --color-amber-600: #2563eb;
+  --color-amber-700: #1d4ed8;
+  --color-amber-800: #1e40af;
+  --color-amber-900: #1e3a8a;
+  --color-amber-950: #172554;
+  --color-orange-400: #2563eb;
+  --color-orange-500: #1d4ed8;
+  --app-bg: #eef3ff;
+  --app-sidebar: #0a1226;
+  --app-footer: #0e1a33;
+}
+
+[data-theme="emerald"] {
+  --color-amber-50: #ecfdf5;
+  --color-amber-100: #d1fae5;
+  --color-amber-200: #a7f3d0;
+  --color-amber-300: #6ee7b7;
+  --color-amber-400: #34d399;
+  --color-amber-500: #10b981;
+  --color-amber-600: #059669;
+  --color-amber-700: #047857;
+  --color-amber-800: #065f46;
+  --color-amber-900: #064e3b;
+  --color-amber-950: #022c22;
+  --color-orange-400: #059669;
+  --color-orange-500: #047857;
+  --app-bg: #edfaf3;
+  --app-sidebar: #08170f;
+  --app-footer: #0a1b12;
+}
+
+[data-theme="violet"] {
+  --color-amber-50: #f5f3ff;
+  --color-amber-100: #ede9fe;
+  --color-amber-200: #ddd6fe;
+  --color-amber-300: #c4b5fd;
+  --color-amber-400: #a78bfa;
+  --color-amber-500: #8b5cf6;
+  --color-amber-600: #7c3aed;
+  --color-amber-700: #6d28d9;
+  --color-amber-800: #5b21b6;
+  --color-amber-900: #4c1d95;
+  --color-amber-950: #2e1065;
+  --color-orange-400: #7c3aed;
+  --color-orange-500: #6d28d9;
+  --app-bg: #f3f0ff;
+  --app-sidebar: #120c26;
+  --app-footer: #140f2b;
+}
+
+[data-theme="rose"] {
+  --color-amber-50: #fff1f2;
+  --color-amber-100: #ffe4e6;
+  --color-amber-200: #fecdd3;
+  --color-amber-300: #fda4af;
+  --color-amber-400: #fb7185;
+  --color-amber-500: #f43f5e;
+  --color-amber-600: #e11d48;
+  --color-amber-700: #be123c;
+  --color-amber-800: #9f1239;
+  --color-amber-900: #881337;
+  --color-amber-950: #4c0519;
+  --color-orange-400: #e11d48;
+  --color-orange-500: #be123c;
+  --app-bg: #fff0f3;
+  --app-sidebar: #1c0a12;
+  --app-footer: #23101a;
+}
+
+/* Tailwind v4 alinea los <button> con el cursor por defecto del navegador
+   (flecha), así que restauramos la manito en los controles clicables.
+   Los elementos no-botón con onClick llevan `cursor-pointer` directamente.
+   Va en @layer base para que las utilidades cursor-* sigan teniendo prioridad. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+}

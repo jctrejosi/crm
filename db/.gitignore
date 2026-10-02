@@ -1,0 +1,4 @@
+# Dumps de la réplica de analytics.
+# El dump COMPLETO (~350 MB) no se versiona; sí sus PARTES troceadas
+# (analytics_<fecha>.backup.part-NNN, 45 MB c/u) y el sha256 del volcado completo.
+backups/*.backup
