@@ -19,13 +19,15 @@ necesita.
 
 ```bash
 node dev.js            # db + backend + web + ia (dev)
+node dev.js --migrate  # además, al terminar de levantar, refresca la BD `crm` desde el ecommerce
+node dev.js --restore  # al montar la BD, fuerza el restore de analytics desde db/backups
 node dev.js --stop     # detiene lo levantado
 node dev.js --help
 ```
 
 Si faltan `node_modules` (backend/web) o `.venv` (ia), se instalan solos. Al
 levantar `db`, si el volumen de `analytics` está vacío se restaura desde
-`db/backups` (`restore.sh`).
+`db/backups` (equivalente a `db/restore.sh`; sin bash, también en Windows).
 
 URLs: web <http://localhost:8444> · backend <http://localhost:3100> (docs en
 `/api/docs`) · ia-service <http://localhost:8002/docs>. Logs en `logs/*.log`.
@@ -48,8 +50,18 @@ La BD `crm` se pobló una vez copiando la del ecommerce. Es una copia puntual:
 a partir de ahí **las dos BD divergen** (el ecommerce ya no alimenta al CRM).
 
 ```bash
-bash db/migrate-from-ecommerce.sh    # vuelve a copiar (sobrescribe `crm`)
+bash db/migrate-from-ecommerce.sh    # solo la copia (sobrescribe `crm`)
+
+# o desde el lanzador: levanta todo y migra al final
+node dev.js --migrate
 ```
+
+> `--migrate` corre **después** de que los servicios están arriba y hace
+> `--clean` sobre `crm`, así que la deja con el esquema del ecommerce. Después
+> hay que reaplicar el esquema propio del CRM (columnas como
+> `campaigns.draft_state`) desde `backend/` con `pnpm db:push` — que hoy requiere
+> `DATABASE_URL` en el entorno, porque los scripts `db:*` no cargan
+> `.env.development.local` (a diferencia de `dev`/`start`).
 
 Cuando haya que mantenerlas sincronizadas de forma continua, habrá que añadir
 un proceso de sincronización (no incluido).
@@ -57,8 +69,14 @@ un proceso de sincronización (no incluido).
 ### Restaurar la copia de datos de `analytics`
 
 ```bash
-bash db/restore.sh          # reensambla las partes del backup y restaura
+node dev.js --db --restore   # elige el backup más reciente de db/backups y restaura
+bash db/restore.sh           # equivalente en Linux/macOS (reensambla las partes si hace falta)
 ```
+
+Sin `--restore`, al levantar `--db` solo se restaura si el volumen está vacío. Con
+`--restore` se fuerza: sobrescribe `analytics` con el backup versionado (verifica
+sha256 y conteos antes de dar por buena la restauración). Todo corre en Node, así
+que funciona igual en Windows (allí `bash`/`restore.sh` no están disponibles).
 
 ## Dependencias externas (no las levanta `dev.js`)
 
