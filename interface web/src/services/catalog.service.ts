@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3100";
 
 export type CatalogProduct = {
   id: number;
@@ -101,7 +101,7 @@ async function uploadPluFile(file: File): Promise<PluFileImportResult> {
   const form = new FormData();
   form.append("file", file);
   const res = await fetch(
-    `${import.meta.env.VITE_API_URL || "http://localhost:3000"}/catalog/products/from-file`,
+    `${import.meta.env.VITE_API_URL || "http://localhost:3100"}/catalog/products/from-file`,
     { method: "POST", body: form, credentials: "include" },
   );
   if (!res.ok) {

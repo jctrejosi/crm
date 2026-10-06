@@ -561,7 +561,7 @@ export default function App() {
 
   // Logo de la tienda configurado en el admin (público: /landing/general).
   useEffect(() => {
-    const base = import.meta.env.VITE_API_URL || "http://localhost:3000";
+    const base = import.meta.env.VITE_API_URL || "http://localhost:3100";
     fetch(`${base}/landing/general`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d: { url?: string } | null) => setStoreLogo(d?.url?.trim() || null))
@@ -570,7 +570,7 @@ export default function App() {
 
   // Nombre de la empresa/tienda configurado en el admin (público: /admin/settings/public-info).
   useEffect(() => {
-    const base = import.meta.env.VITE_API_URL || "http://localhost:3000";
+    const base = import.meta.env.VITE_API_URL || "http://localhost:3100";
     fetch(`${base}/admin/settings/public-info`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d: { tradeName?: string } | null) => setCompanyName(d?.tradeName?.trim() || "Mercaldas"))

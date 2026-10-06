@@ -71,7 +71,7 @@ const CHANNEL_TO_API: Record<keyof typeof CHANNEL_CFG, CampaignChannel> = {
 };
 
 /** Servicio de SMS (Vassago/sms_service). Solo este canal está conectado para pruebas. */
-const SMS_TEST_API_URL = import.meta.env.VITE_SMS_API_URL || "http://localhost:8011";
+const SMS_TEST_API_URL = import.meta.env.VITE_SMS_API_URL || "http://localhost:8015";
 
 /** Código legible de la campaña (derivado del id). */
 function campaignCode(id: number): string {
@@ -1144,7 +1144,7 @@ function TestSendModal({
     }
     setSending(true);
     try {
-      // Por ahora solo está conectado el servicio de SMS (localhost:8011).
+      // Por ahora solo está conectado el servicio de SMS (localhost:8015).
       if (channel !== "sms") {
         throw new Error(
           `El envío de prueba por ${CHANNEL_CFG[channel].label} aún no está conectado. Por ahora solo funciona SMS.`,

@@ -14,7 +14,7 @@ export interface SwaggerConfig {
 }
 
 export function getSwaggerConfig(configService: ConfigService): SwaggerConfig {
-  const port = configService.get<number>('app.port') ?? 3000;
+  const port = configService.get<number>('app.port') ?? 3100;
 
   return {
     title: 'Ecommerce API',

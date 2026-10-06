@@ -3,7 +3,7 @@ import App from './App'
 import { ThemeProvider } from './theme'
 import './index.css'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3100'
 
 // Título de la pestaña: "<nombre de tienda> analytics | DSI".
 function setAppTitle(appLabel: string) {
