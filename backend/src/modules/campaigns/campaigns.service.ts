@@ -275,6 +275,7 @@ export class CampaignsService {
         channels,
         priorityChannel,
         mode: dto.mode ?? 'multi',
+        draftState: (dto.draftState as object) ?? null,
         createdBy: userId ?? null,
       })
       .returning();
@@ -322,6 +323,7 @@ export class CampaignsService {
         mode: (dto.mode as never) ?? existing.mode,
         status: (dto.status as never) ?? existing.status,
         scheduledAt: dto.scheduledAt ?? existing.scheduledAt,
+        draftState: (dto.draftState as object) ?? existing.draftState,
         updatedAt: new Date().toISOString(),
       })
       .where(eq(campaigns.id, BigInt(id)))

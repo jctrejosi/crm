@@ -19,11 +19,13 @@ import {
   Users,
   Palette,
   Check,
+  Sun,
+  Moon,
 } from "lucide-react";
 import Dashboard from "./views/Dashboard";
 import Campaigns from "./views/Campaigns";
 import { authService, type UserProfile } from "./services/auth.service";
-import { THEMES, useTheme } from "./theme";
+import { THEMES, MODES, useTheme } from "./theme";
 
 export type ViewId = "dashboard" | "campaigns";
 
@@ -128,7 +130,7 @@ function CommandPalette({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden"
+        className="w-full max-w-lg bg-surface rounded-2xl shadow-2xl border border-gray-200 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
@@ -224,7 +226,7 @@ function Notifications({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-200 z-40"
+      className="absolute right-0 top-full mt-2 w-80 bg-surface rounded-xl shadow-xl border border-gray-200 z-40"
       onClick={(e) => e.stopPropagation()}
     >
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
@@ -281,12 +283,19 @@ function Sidebar({
 }) {
   return (
     <aside
-      className="relative flex flex-col h-full border-r border-white/[0.06] transition-all duration-300"
-      style={{ background: "var(--app-sidebar)", width: collapsed ? 56 : 240 }}
+      className="relative flex flex-col h-full border-r transition-all duration-300"
+      style={{
+        background: "var(--app-sidebar)",
+        borderColor: "var(--app-sidebar-border)",
+        width: collapsed ? 56 : 240,
+      }}
     >
       {/* Logo + título / empresa */}
-      <div className="flex flex-col gap-3 px-4 py-5 border-b border-white/[0.06] shrink-0">
-        {/* logo.png junto al título "Web Analytics" */}
+      <div
+        className="flex flex-col gap-3 px-4 py-5 border-b shrink-0"
+        style={{ borderColor: "var(--app-sidebar-border)" }}
+      >
+        {/* logo.png junto al título "CRM" */}
         <div className={`flex items-center gap-2.5 ${collapsed ? "justify-center" : ""}`}>
           <a
             href="https://dsi.com.co"
@@ -301,8 +310,11 @@ function Sidebar({
             />
           </a>
           {!collapsed && (
-            <p className="text-base font-extrabold uppercase tracking-wide text-amber-400">
-              Analytics
+            <p
+              className="text-base font-extrabold uppercase tracking-wide"
+              style={{ color: "var(--app-sidebar-accent)" }}
+            >
+              CRM
             </p>
           )}
         </div>
@@ -316,7 +328,12 @@ function Sidebar({
             />
           )}
           {!collapsed && (
-            <p className="text-xs font-semibold text-white/70 truncate">{companyName}</p>
+            <p
+              className="text-xs font-semibold truncate"
+              style={{ color: "var(--app-sidebar-fg-muted)" }}
+            >
+              {companyName}
+            </p>
           )}
         </div>
       </div>
@@ -326,7 +343,10 @@ function Sidebar({
         {NAV.map((section) => (
           <div key={section.title} className="mb-4">
             {!collapsed && (
-              <p className="text-white/30 text-[10px] font-semibold uppercase tracking-widest px-2 mb-1">
+              <p
+                className="text-[10px] font-semibold uppercase tracking-widest px-2 mb-1"
+                style={{ color: "var(--app-sidebar-fg-subtle)" }}
+              >
                 {section.title}
               </p>
             )}
@@ -337,10 +357,8 @@ function Sidebar({
                   key={item.id}
                   onClick={() => onNavigate(item.id)}
                   title={collapsed ? item.label : undefined}
-                  className={`w-full flex items-center gap-3 px-2 py-2 rounded-lg text-sm font-medium transition-all mb-0.5 group relative ${
-                    active
-                      ? "bg-white/10 text-amber-400"
-                      : "text-white/50 hover:bg-white/[0.06] hover:text-white/80"
+                  className={`w-full flex items-center gap-3 px-2 py-2 rounded-lg text-sm font-medium mb-0.5 group relative ${
+                    active ? "sidebar-item-active" : "sidebar-item"
                   }`}
                 >
                   <item.icon size={15} className="shrink-0" />
@@ -356,7 +374,11 @@ function Sidebar({
       <button
         onClick={onToggleCollapse}
         title={collapsed ? "Expandir menú" : "Ocultar menú"}
-        className="absolute top-1/2 -translate-y-1/2 -right-3 z-20 w-6 h-6 flex items-center justify-center rounded-full border border-white/15 bg-(--app-sidebar) text-white/70 hover:text-white shadow-md transition-colors cursor-pointer"
+        className="sidebar-item absolute top-1/2 -translate-y-1/2 -right-3 z-20 w-6 h-6 flex items-center justify-center rounded-full border shadow-md cursor-pointer"
+        style={{
+          background: "var(--app-sidebar)",
+          borderColor: "var(--app-sidebar-border)",
+        }}
       >
         {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
       </button>
@@ -375,7 +397,7 @@ function TopBar({
 }) {
   const [notifOpen, setNotifOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, mode, setMode } = useTheme();
 
   useEffect(() => {
     const handler = () => {
@@ -397,7 +419,7 @@ function TopBar({
   const displayEmail = user?.email || "jorge@mercaldas.com";
 
   return (
-    <header className="h-14 bg-white border-b border-gray-100 flex items-center gap-3 px-4 shrink-0 z-30">
+    <header className="h-14 bg-surface border-b border-gray-100 flex items-center gap-3 px-4 shrink-0 z-30">
       {/* Breadcrumb */}
       <div className="flex items-center gap-1.5 text-sm">
         <span className="text-gray-400">Mercaldas</span>
@@ -448,10 +470,38 @@ function TopBar({
             <ChevronDown size={13} className="text-gray-400" />
           </button>
           {userOpen && (
-            <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-xl shadow-xl border border-gray-200 py-1.5 z-40">
+            <div className="absolute right-0 top-full mt-2 w-52 bg-surface rounded-xl shadow-xl border border-gray-200 py-1.5 z-40">
               <div className="px-4 py-2 border-b border-gray-100 mb-1">
                 <p className="text-sm font-semibold text-gray-800">{displayName}</p>
                 <p className="text-xs text-gray-500">{displayEmail}</p>
+              </div>
+
+              {/* Panel de modo claro/oscuro */}
+              <div className="px-4 py-2 border-b border-gray-100">
+                <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-2">
+                  <Sun size={11} /> Modo
+                </p>
+                <div className="flex items-center gap-1 rounded-lg bg-gray-100 p-0.5">
+                  {MODES.map((m) => {
+                    const active = mode === m.id;
+                    const Icon = m.id === "light" ? Sun : Moon;
+                    return (
+                      <button
+                        key={m.id}
+                        onClick={() => setMode(m.id)}
+                        aria-label={`Modo ${m.label}`}
+                        aria-pressed={active}
+                        className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1 rounded-md text-xs font-semibold transition-colors ${
+                          active
+                            ? "bg-amber-400 text-amber-900 shadow-sm"
+                            : "text-gray-500 hover:text-gray-700"
+                        }`}
+                      >
+                        <Icon size={13} /> {m.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Panel de temas */}
@@ -471,7 +521,7 @@ function TopBar({
                         aria-pressed={active}
                         className={`w-6 h-6 rounded-full flex items-center justify-center transition-transform hover:scale-110 ${
                           active
-                            ? "ring-2 ring-offset-2 ring-gray-800"
+                            ? "ring-2 ring-offset-2 ring-offset-surface ring-gray-800"
                             : "ring-1 ring-black/10"
                         }`}
                         style={{ background: t.swatch }}
@@ -616,10 +666,10 @@ export default function App() {
             >
               <img src={footerLogo} alt="Mercaldas" className="h-[25.6px] w-auto object-contain" />
             </a>
-            <p className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>
-              © 2026 Desarrollado por <span className="font-bold text-white/70">DSI SA</span> · Todos los derechos reservados
+            <p className="text-xs" style={{ color: "var(--app-footer-fg)" }}>
+              © 2026 Desarrollado por <span className="font-bold" style={{ color: "var(--app-footer-fg-strong)" }}>DSI SA</span> · Todos los derechos reservados
             </p>
-            <p className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
+            <p className="text-xs" style={{ color: "var(--app-footer-fg)" }}>
               Manizales, Caldas, Colombia
             </p>
           </div>

@@ -5,7 +5,7 @@ import './index.css'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3100'
 
-// Título de la pestaña: "<nombre de tienda> analytics | DSI".
+// Título de la pestaña: "<nombre de tienda> CRM | DSI".
 function setAppTitle(appLabel: string) {
   fetch(`${API_URL}/admin/settings/public-info`)
     .then((r) => (r.ok ? r.json() : {}))
@@ -17,7 +17,7 @@ function setAppTitle(appLabel: string) {
       document.title = `Mercaldas ${appLabel} | DSI`
     })
 }
-setAppTitle('analytics')
+setAppTitle('CRM')
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <ThemeProvider>

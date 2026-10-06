@@ -18,6 +18,9 @@ import {
  */
 export type ThemeId = "amber" | "blue" | "emerald" | "violet" | "rose";
 
+/** Modo claro/oscuro. Se combina con el tema de acento (son ejes independientes). */
+export type ModeId = "light" | "dark";
+
 export interface ThemeOption {
   id: ThemeId;
   label: string;
@@ -33,8 +36,15 @@ export const THEMES: ThemeOption[] = [
   { id: "rose", label: "Rosa", swatch: "#f43f5e" },
 ];
 
+export const MODES: { id: ModeId; label: string }[] = [
+  { id: "light", label: "Claro" },
+  { id: "dark", label: "Oscuro" },
+];
+
 const STORAGE_KEY = "mercaldas-analytics-theme";
+const STORAGE_KEY_MODE = "mercaldas-analytics-mode";
 const DEFAULT_THEME: ThemeId = "blue";
+const DEFAULT_MODE: ModeId = "light";
 
 function isThemeId(value: string | null): value is ThemeId {
   return !!value && THEMES.some((t) => t.id === value);
@@ -50,14 +60,32 @@ function readStoredTheme(): ThemeId {
   }
 }
 
+function isModeId(value: string | null): value is ModeId {
+  return value === "light" || value === "dark";
+}
+
+function readStoredMode(): ModeId {
+  if (typeof window === "undefined") return DEFAULT_MODE;
+  try {
+    const saved = window.localStorage.getItem(STORAGE_KEY_MODE);
+    return isModeId(saved) ? saved : DEFAULT_MODE;
+  } catch {
+    return DEFAULT_MODE;
+  }
+}
+
 interface ThemeContextValue {
   theme: ThemeId;
   setTheme: (theme: ThemeId) => void;
+  mode: ModeId;
+  setMode: (mode: ModeId) => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
   theme: DEFAULT_THEME,
   setTheme: () => {},
+  mode: DEFAULT_MODE,
+  setMode: () => {},
 });
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
@@ -66,6 +94,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     // Aplica el tema antes del primer pintado para evitar un flash de color.
     if (typeof document !== "undefined") {
       document.documentElement.setAttribute("data-theme", initial);
+    }
+    return initial;
+  });
+
+  const [mode, setModeState] = useState<ModeId>(() => {
+    const initial = readStoredMode();
+    if (typeof document !== "undefined") {
+      document.documentElement.setAttribute("data-mode", initial);
     }
     return initial;
   });
@@ -79,10 +115,22 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   }, [theme]);
 
+  useEffect(() => {
+    document.documentElement.setAttribute("data-mode", mode);
+    // Ajusta el color de la barra del navegador / controles nativos.
+    document.documentElement.style.colorScheme = mode;
+    try {
+      window.localStorage.setItem(STORAGE_KEY_MODE, mode);
+    } catch {
+      // localStorage puede no estar disponible; el modo igual se aplica.
+    }
+  }, [mode]);
+
   const setTheme = useCallback((next: ThemeId) => setThemeState(next), []);
+  const setMode = useCallback((next: ModeId) => setModeState(next), []);
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme }}>
+    <ThemeContext.Provider value={{ theme, setTheme, mode, setMode }}>
       {children}
     </ThemeContext.Provider>
   );

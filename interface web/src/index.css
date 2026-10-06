@@ -1,6 +1,15 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,opsz,wght@0,6..13,300..800;1,6..13,300..800&family=JetBrains+Mono:wght@400;500&display=swap');
 @import 'tailwindcss';
 
+/* Colores semánticos propios (Tailwind v4 genera `bg-surface`, `bg-inverse`...).
+   `surface` es el fondo de tarjetas, modales y topbar: blanco en modo claro y
+   oscuro en modo oscuro (ver `[data-mode="dark"]`). `inverse` es un fondo
+   oscuro fijo (tooltips) que no cambia con el modo. */
+@theme {
+  --color-surface: #ffffff;
+  --color-inverse: #111827;
+}
+
 /* Tailwind v4 deja los botones con cursor:default; los devolvemos a pointer. */
 @layer base {
   button:not(:disabled),
@@ -91,8 +100,20 @@ code, kbd, .mono { font-family: 'JetBrains Mono', monospace; }
 /* Valores por defecto (tema ámbar / sin tema). */
 :root {
   --app-bg: #f9fafb;      /* fondo principal de la app (antes bg-gray-50) */
-  --app-sidebar: #0c0c0d; /* fondo del sidebar */
-  --app-footer: #111827;  /* fondo del footer institucional */
+  --app-sidebar: #ffffff; /* fondo del sidebar */
+  --app-footer: #f3f4f6;  /* fondo del footer institucional */
+
+  /* Semántica del sidebar / footer (cambian con el modo claro/oscuro). */
+  --app-sidebar-border: var(--color-gray-200);
+  --app-sidebar-fg: var(--color-gray-800);
+  --app-sidebar-fg-muted: var(--color-gray-500);
+  --app-sidebar-fg-subtle: var(--color-gray-400);
+  --app-sidebar-hover: var(--color-gray-100);
+  --app-sidebar-active-bg: var(--color-amber-50);
+  --app-sidebar-accent: var(--color-amber-600);
+
+  --app-footer-fg: var(--color-gray-500);
+  --app-footer-fg-strong: var(--color-gray-700);
 }
 
 [data-theme="blue"] {
@@ -110,8 +131,8 @@ code, kbd, .mono { font-family: 'JetBrains Mono', monospace; }
   --color-orange-400: #2563eb;
   --color-orange-500: #1d4ed8;
   --app-bg: #eef3ff;
-  --app-sidebar: #0a1226;
-  --app-footer: #0e1a33;
+  --app-sidebar: #f2f6ff;
+  --app-footer: #e9f0ff;
 }
 
 [data-theme="emerald"] {
@@ -129,8 +150,8 @@ code, kbd, .mono { font-family: 'JetBrains Mono', monospace; }
   --color-orange-400: #059669;
   --color-orange-500: #047857;
   --app-bg: #edfaf3;
-  --app-sidebar: #08170f;
-  --app-footer: #0a1b12;
+  --app-sidebar: #f1faf5;
+  --app-footer: #e8f6ee;
 }
 
 [data-theme="violet"] {
@@ -148,8 +169,8 @@ code, kbd, .mono { font-family: 'JetBrains Mono', monospace; }
   --color-orange-400: #7c3aed;
   --color-orange-500: #6d28d9;
   --app-bg: #f3f0ff;
-  --app-sidebar: #120c26;
-  --app-footer: #140f2b;
+  --app-sidebar: #f6f3ff;
+  --app-footer: #efeaff;
 }
 
 [data-theme="rose"] {
@@ -167,8 +188,124 @@ code, kbd, .mono { font-family: 'JetBrains Mono', monospace; }
   --color-orange-400: #e11d48;
   --color-orange-500: #be123c;
   --app-bg: #fff0f3;
-  --app-sidebar: #1c0a12;
-  --app-footer: #23101a;
+  --app-sidebar: #fff5f7;
+  --app-footer: #ffe9ee;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Modo claro / oscuro.
+   `[data-mode="dark"]` se marca en <html> (ver theme.tsx). Recolorea
+   las superficies y la escala neutra redefiniendo variables de Tailwind:
+   por eso `bg-white` se cambia a `bg-surface` en los componentes, `gray-*`
+   se invierte, los tintes claros de acento (-50/-100/-200) se oscurecen y
+   las tintas medias (-600/-700/-800) se aclaran para mantener contraste.
+   Los tonos vivos de acento y el -900/-950 (texto sobre fondos de acento)
+   se conservan.
+   ───────────────────────────────────────────────────────────── */
+[data-mode="dark"] {
+  --color-surface: #15181f;
+  --color-inverse: #0b0d12;
+
+  --app-bg: #0d0f14;
+  --app-sidebar: #0a0c11;
+  --app-footer: #0a0c11;
+
+  --app-sidebar-border: rgba(255, 255, 255, 0.08);
+  --app-sidebar-fg: rgba(255, 255, 255, 0.85);
+  --app-sidebar-fg-muted: rgba(255, 255, 255, 0.6);
+  --app-sidebar-fg-subtle: rgba(255, 255, 255, 0.35);
+  --app-sidebar-hover: rgba(255, 255, 255, 0.06);
+  --app-sidebar-active-bg: rgba(255, 255, 255, 0.1);
+  --app-sidebar-accent: var(--color-amber-400);
+
+  --app-footer-fg: rgba(255, 255, 255, 0.4);
+  --app-footer-fg-strong: rgba(255, 255, 255, 0.7);
+
+  /* Escala de grises invertida. */
+  --color-gray-50: #171a21;
+  --color-gray-100: #1e222b;
+  --color-gray-200: #2a2f3a;
+  --color-gray-300: #3a414d;
+  --color-gray-400: #6f7889;
+  --color-gray-500: #98a1b0;
+  --color-gray-600: #b4bcc8;
+  --color-gray-700: #cdd3dc;
+  --color-gray-800: #e4e8ee;
+  --color-gray-900: #f1f4f8;
+  --color-gray-950: #fafbfc;
+
+  /* Tintes claros de acento → oscuros. */
+  --color-amber-50: color-mix(in srgb, var(--color-amber-500) 16%, var(--color-surface));
+  --color-amber-100: color-mix(in srgb, var(--color-amber-500) 24%, var(--color-surface));
+  --color-amber-200: color-mix(in srgb, var(--color-amber-500) 34%, var(--color-surface));
+  --color-blue-50: color-mix(in srgb, var(--color-blue-500) 16%, var(--color-surface));
+  --color-blue-100: color-mix(in srgb, var(--color-blue-500) 24%, var(--color-surface));
+  --color-blue-200: color-mix(in srgb, var(--color-blue-500) 34%, var(--color-surface));
+  --color-green-50: color-mix(in srgb, var(--color-green-500) 16%, var(--color-surface));
+  --color-green-100: color-mix(in srgb, var(--color-green-500) 24%, var(--color-surface));
+  --color-green-200: color-mix(in srgb, var(--color-green-500) 34%, var(--color-surface));
+  --color-emerald-50: color-mix(in srgb, var(--color-emerald-500) 16%, var(--color-surface));
+  --color-emerald-100: color-mix(in srgb, var(--color-emerald-500) 24%, var(--color-surface));
+  --color-emerald-200: color-mix(in srgb, var(--color-emerald-500) 34%, var(--color-surface));
+  --color-red-50: color-mix(in srgb, var(--color-red-500) 16%, var(--color-surface));
+  --color-red-100: color-mix(in srgb, var(--color-red-500) 24%, var(--color-surface));
+  --color-red-200: color-mix(in srgb, var(--color-red-500) 34%, var(--color-surface));
+  --color-violet-50: color-mix(in srgb, var(--color-violet-500) 16%, var(--color-surface));
+  --color-violet-100: color-mix(in srgb, var(--color-violet-500) 24%, var(--color-surface));
+  --color-violet-200: color-mix(in srgb, var(--color-violet-500) 34%, var(--color-surface));
+  --color-purple-50: color-mix(in srgb, var(--color-purple-500) 16%, var(--color-surface));
+  --color-purple-100: color-mix(in srgb, var(--color-purple-500) 24%, var(--color-surface));
+  --color-purple-200: color-mix(in srgb, var(--color-purple-500) 34%, var(--color-surface));
+  --color-yellow-50: color-mix(in srgb, var(--color-yellow-500) 16%, var(--color-surface));
+  --color-yellow-100: color-mix(in srgb, var(--color-yellow-500) 24%, var(--color-surface));
+  --color-yellow-200: color-mix(in srgb, var(--color-yellow-500) 34%, var(--color-surface));
+  --color-pink-50: color-mix(in srgb, var(--color-pink-500) 16%, var(--color-surface));
+  --color-pink-100: color-mix(in srgb, var(--color-pink-500) 24%, var(--color-surface));
+  --color-pink-200: color-mix(in srgb, var(--color-pink-500) 34%, var(--color-surface));
+
+  /* Tintas medias de acento aclaradas (mejor contraste sobre fondo oscuro). */
+  --color-amber-600: var(--color-amber-500);
+  --color-amber-700: var(--color-amber-500);
+  --color-amber-800: var(--color-amber-400);
+  --color-blue-600: var(--color-blue-500);
+  --color-blue-700: var(--color-blue-500);
+  --color-blue-800: var(--color-blue-400);
+  --color-green-600: var(--color-green-500);
+  --color-green-700: var(--color-green-500);
+  --color-green-800: var(--color-green-400);
+  --color-emerald-600: var(--color-emerald-500);
+  --color-emerald-700: var(--color-emerald-500);
+  --color-emerald-800: var(--color-emerald-400);
+  --color-red-600: var(--color-red-500);
+  --color-red-700: var(--color-red-500);
+  --color-red-800: var(--color-red-400);
+  --color-violet-600: var(--color-violet-500);
+  --color-violet-700: var(--color-violet-500);
+  --color-violet-800: var(--color-violet-400);
+  --color-purple-600: var(--color-purple-500);
+  --color-purple-700: var(--color-purple-500);
+  --color-purple-800: var(--color-purple-400);
+  --color-yellow-600: var(--color-yellow-500);
+  --color-yellow-700: var(--color-yellow-500);
+  --color-yellow-800: var(--color-yellow-400);
+  --color-pink-600: var(--color-pink-500);
+  --color-pink-700: var(--color-pink-500);
+  --color-pink-800: var(--color-pink-400);
+}
+
+/* Semántica del sidebar según el modo (claro/oscuro). */
+.sidebar-item {
+  color: var(--app-sidebar-fg-muted);
+  transition: background-color 0.15s, color 0.15s;
+}
+.sidebar-item:hover {
+  background: var(--app-sidebar-hover);
+  color: var(--app-sidebar-fg);
+}
+.sidebar-item-active,
+.sidebar-item-active:hover {
+  background: var(--app-sidebar-active-bg);
+  color: var(--app-sidebar-accent);
 }
 
 /* Tailwind v4 alinea los <button> con el cursor por defecto del navegador

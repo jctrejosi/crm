@@ -223,7 +223,7 @@ function EmailPreview({ subject, body, editableBody, onEditSubject, onEditBody, 
   // tarjeta); sin él se conserva el alto fijo del contenedor de la tarjeta.
   const autoHeight = !!html;
   return (
-    <div className={`flex flex-col rounded-2xl overflow-hidden shadow-lg border border-gray-200 bg-white ${autoHeight ? "" : "h-full"}`}>
+    <div className={`flex flex-col rounded-2xl overflow-hidden shadow-lg border border-gray-200 bg-surface ${autoHeight ? "" : "h-full"}`}>
       {/* Fake browser bar */}
       <div className="flex items-center gap-1.5 px-3 py-2 bg-gray-100 border-b border-gray-200">
         <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
@@ -285,7 +285,7 @@ function SmsPreview({ text, editable, onEdit }: { text: string; editable: boolea
   return (
     <div className="flex flex-col h-full rounded-2xl overflow-hidden shadow-lg border border-gray-200" style={{ background: "#F2F2F7" }}>
       {/* Header */}
-      <div className="flex items-center justify-center px-4 py-3 bg-white border-b border-gray-200">
+      <div className="flex items-center justify-center px-4 py-3 bg-surface border-b border-gray-200">
         <div className="text-center">
           <p className="text-sm font-semibold text-gray-900">Mercaldas</p>
           <p className="text-[10px] text-gray-400">Mensaje de texto</p>
@@ -419,7 +419,7 @@ function Step1({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar producto por nombre o categoría..."
-              className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white"
+              className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-300 bg-surface"
             />
           </div>
 
@@ -428,7 +428,7 @@ function Step1({
               <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
                 <button
                   onClick={() => setActiveCats([])}
-                  className={`shrink-0 px-3 py-1.5 text-xs font-semibold rounded-full border transition-all ${activeCats.length === 0 ? "bg-amber-400 text-amber-900 border-transparent" : "bg-white border-gray-200 text-gray-600 hover:border-amber-300"}`}
+                  className={`shrink-0 px-3 py-1.5 text-xs font-semibold rounded-full border transition-all ${activeCats.length === 0 ? "bg-amber-400 text-amber-900 border-transparent" : "bg-surface border-gray-200 text-gray-600 hover:border-amber-300"}`}
                 >
                   Todas
                 </button>
@@ -438,7 +438,7 @@ function Step1({
                     <button
                       key={c.id}
                       onClick={() => toggleCat(c.id)}
-                      className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full border transition-all ${on ? "bg-amber-400 text-amber-900 border-transparent" : "bg-white border-gray-200 text-gray-600 hover:border-amber-300"}`}
+                      className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full border transition-all ${on ? "bg-amber-400 text-amber-900 border-transparent" : "bg-surface border-gray-200 text-gray-600 hover:border-amber-300"}`}
                     >
                       {c.name}
                       {c.count > 0 && (
@@ -482,7 +482,7 @@ function Step1({
                   <button
                     key={p.id}
                     onClick={() => onToggle(p)}
-                    className={`relative text-left rounded-2xl border-2 p-4 transition-all hover:shadow-md ${active ? "border-amber-400 bg-amber-50 shadow-md" : "border-gray-100 bg-white hover:border-gray-200"}`}
+                    className={`relative text-left rounded-2xl border-2 p-4 transition-all hover:shadow-md ${active ? "border-amber-400 bg-amber-50 shadow-md" : "border-gray-100 bg-surface hover:border-gray-200"}`}
                   >
                     {active && (
                       <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-amber-400 flex items-center justify-center">
@@ -514,7 +514,7 @@ function Step1({
         </div>
       </div>
 
-      <div className="shrink-0 px-6 py-2.5 border-t border-gray-200 bg-white flex justify-end">
+      <div className="shrink-0 px-6 py-2.5 border-t border-gray-200 bg-surface flex justify-end">
         <button
           onClick={onNext}
           disabled={selectedProducts.length === 0 || !Object.values(channels).some(Boolean)}
@@ -531,7 +531,7 @@ function Step1({
           onClick={() => setShowSelected(false)}
         >
           <div
-            className="bg-white rounded-2xl shadow-xl w-full max-w-md flex flex-col max-h-[80vh] overflow-hidden"
+            className="bg-surface rounded-2xl shadow-xl w-full max-w-md flex flex-col max-h-[80vh] overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
@@ -738,7 +738,7 @@ function Step2({
             {/* Products reminder */}
             <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 mb-5">
               <div className="flex items-center gap-3 mb-2">
-                <div className="w-12 h-12 rounded-xl overflow-hidden bg-white shrink-0 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-xl overflow-hidden bg-surface shrink-0 flex items-center justify-center">
                   {products[0]?.image ? (
                     <img src={products[0].image} alt={products[0].name} className="w-full h-full object-cover" />
                   ) : (
@@ -805,7 +805,7 @@ function Step2({
                       className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl border-2 text-xs font-semibold transition-all ${
                         on
                           ? `${cfg.bg} text-white border-transparent shadow-sm`
-                          : "border-gray-200 text-gray-400 bg-white hover:border-gray-300"
+                          : "border-gray-200 text-gray-400 bg-surface hover:border-gray-300"
                       }`}
                     >
                       <cfg.icon size={14} />
@@ -877,7 +877,7 @@ function Step2({
                       title={`Enviar por ${cfg.label} como canal prioritario`}
                       className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border-2 text-[11px] font-semibold transition-all ${
                         active
-                          ? "border-amber-400 bg-white shadow-sm text-gray-900"
+                          ? "border-amber-400 bg-surface shadow-sm text-gray-900"
                           : "border-transparent text-gray-500 hover:bg-white/70"
                       }`}
                     >
@@ -1011,7 +1011,7 @@ function Step2({
         )}
       </div>
 
-      <div className="shrink-0 px-6 py-2.5 border-t border-gray-200 bg-white flex items-center justify-between">
+      <div className="shrink-0 px-6 py-2.5 border-t border-gray-200 bg-surface flex items-center justify-between">
         <button onClick={onBack} className="flex items-center gap-2 px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">
           <ChevronLeft size={15} /> Atrás
         </button>
@@ -1021,7 +1021,7 @@ function Step2({
               <button
                 onClick={() => setTestOpen(true)}
                 title="Enviar una campaña de prueba a un celular o correo"
-                className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl transition-colors"
+                className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-gray-700 bg-surface border border-gray-200 hover:bg-gray-50 rounded-xl transition-colors"
               >
                 <Send size={15} /> Enviar prueba
               </button>
@@ -1192,7 +1192,7 @@ function TestSendModal({
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm cursor-pointer" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden">
+      <div className="relative bg-surface rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
           <div className="flex items-center gap-2">
             <Send size={17} className="text-amber-600" />
@@ -1259,7 +1259,7 @@ function TestSendModal({
                       }
                       title="Prefijo del país"
                       aria-label="Prefijo del país"
-                      className="appearance-none h-full pl-3 pr-8 py-2.5 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-300 cursor-pointer"
+                      className="appearance-none h-full pl-3 pr-8 py-2.5 text-sm border border-gray-200 rounded-xl bg-surface focus:outline-none focus:ring-2 focus:ring-amber-300 cursor-pointer"
                     >
                       {getPhonePrefixes().map((p) => (
                         <option key={p.code} value={p.code} title={p.name}>
@@ -1584,7 +1584,7 @@ function AudienceStep({
             </button>
           )}
 
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm mb-4">
+          <div className="bg-surface rounded-2xl border border-gray-100 p-5 shadow-sm mb-4">
             <div className="space-y-3">
               {/* Selector de origen del público */}
               <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -1606,7 +1606,7 @@ function AudienceStep({
                     title="Elige tú los clientes por filtros (ubicación, género, edad, perfil de compra…)"
                     className={`flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-bold rounded-xl border-2 transition-all cursor-pointer ${
                       audSource === "manual"
-                        ? "border-amber-400 bg-amber-50 text-amber-900 shadow-sm"
+                        ? "border-amber-400 bg-amber-50 text-amber-800 shadow-sm"
                         : "border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600"
                     }`}
                   >
@@ -1695,7 +1695,7 @@ function AudienceStep({
                       className={`flex items-center gap-2 rounded-xl border px-3 py-2 cursor-pointer select-none transition-all ${
                         audMix
                           ? "border-amber-400 bg-amber-50 shadow-sm"
-                          : "border-gray-200 bg-white hover:border-gray-300"
+                          : "border-gray-200 bg-surface hover:border-gray-300"
                       }`}
                     >
                       <input
@@ -1726,7 +1726,7 @@ function AudienceStep({
                       className={`flex items-center gap-2 rounded-xl border px-3 py-2 cursor-pointer select-none transition-all ${
                         !audMix
                           ? "border-amber-400 bg-amber-50 shadow-sm"
-                          : "border-gray-200 bg-white hover:border-gray-300"
+                          : "border-gray-200 bg-surface hover:border-gray-300"
                       }`}
                     >
                       <input
@@ -1783,7 +1783,7 @@ function AudienceStep({
         </div>
       </div>
 
-      <div className="shrink-0 px-6 py-2.5 border-t border-gray-200 bg-white flex items-center justify-between">
+      <div className="shrink-0 px-6 py-2.5 border-t border-gray-200 bg-surface flex items-center justify-between">
         <button onClick={onBack} className="flex items-center gap-2 px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">
           <ChevronLeft size={15} /> Atrás
         </button>
@@ -1806,7 +1806,7 @@ function AudienceStep({
             className="absolute inset-0 bg-black/50 backdrop-blur-sm cursor-pointer"
             onClick={() => setNoFiltersPrompt(false)}
           />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+          <div className="relative bg-surface rounded-2xl shadow-2xl w-full max-w-md p-6">
             <div className="flex items-start gap-3">
               <span className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
                 <SlidersHorizontal size={18} />
@@ -1936,7 +1936,7 @@ function ReviewStep({
           <p className="text-sm text-gray-500 mb-6">Todo listo. Confirma los detalles y decide cuándo enviar.</p>
 
           {/* Summary card */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm mb-4">
+          <div className="bg-surface rounded-2xl border border-gray-100 p-5 shadow-sm mb-4">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Resumen</h3>
             <div className="space-y-3">
               <div className="flex items-center gap-3">
@@ -1995,12 +1995,12 @@ function ReviewStep({
           </div>
 
           {/* Schedule option */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm mb-6">
+          <div className="bg-surface rounded-2xl border border-gray-100 p-5 shadow-sm mb-6">
             <div className="flex items-center justify-between mb-3">
               <p className="text-sm font-semibold text-gray-800">¿Cuándo enviar?</p>
               <div className="flex items-center bg-gray-100 rounded-xl p-1">
-                <button onClick={() => setScheduled(false)} className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${!scheduled ? "bg-white shadow-sm text-gray-800" : "text-gray-500"}`}>Ahora</button>
-                <button onClick={() => setScheduled(true)} className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${scheduled ? "bg-white shadow-sm text-gray-800" : "text-gray-500"}`}>Programar</button>
+                <button onClick={() => setScheduled(false)} className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${!scheduled ? "bg-surface shadow-sm text-gray-800" : "text-gray-500"}`}>Ahora</button>
+                <button onClick={() => setScheduled(true)} className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${scheduled ? "bg-surface shadow-sm text-gray-800" : "text-gray-500"}`}>Programar</button>
               </div>
             </div>
             {scheduled ? (
@@ -2021,7 +2021,7 @@ function ReviewStep({
         </div>
       </div>
 
-      <div className="shrink-0 px-6 py-2.5 border-t border-gray-200 bg-white flex items-center justify-between gap-3">
+      <div className="shrink-0 px-6 py-2.5 border-t border-gray-200 bg-surface flex items-center justify-between gap-3">
         <button onClick={onBack} className="flex items-center gap-2 px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors shrink-0">
           <ChevronLeft size={15} /> Atrás
         </button>
@@ -2034,7 +2034,7 @@ function ReviewStep({
           <button
             onClick={onSaveDraft}
             disabled={sending || savingDraft}
-            className="flex items-center gap-2 px-4 py-3 text-sm font-bold text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-3 text-sm font-bold text-gray-700 bg-surface border border-gray-200 hover:bg-gray-50 hover:border-gray-300 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {savingDraft ? (
               <RefreshCw size={15} className="animate-spin" />
@@ -2074,7 +2074,7 @@ function StepBar({
     { n: 4, label: "Revisar y Enviar" },
   ];
   return (
-    <div className="flex items-center gap-0 px-6 py-3 border-b border-gray-100 bg-white shrink-0">
+    <div className="flex items-center gap-0 px-6 py-3 border-b border-gray-100 bg-surface shrink-0">
       {steps.map((s, i) => {
         const current = step === s.n;
         const done = step > s.n;
@@ -2172,7 +2172,7 @@ function ImportPluModal({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-xl w-full max-w-2xl flex flex-col max-h-[85vh] overflow-hidden"
+        className="bg-surface rounded-2xl shadow-xl w-full max-w-2xl flex flex-col max-h-[85vh] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
@@ -2269,7 +2269,7 @@ function ImportPluModal({
                             {p.brandName ? ` · ${p.brandName}` : ""}
                           </p>
                         </div>
-                        <span className="shrink-0 text-[10px] font-bold bg-white border border-gray-200 text-gray-500 px-2 py-0.5 rounded-md">
+                        <span className="shrink-0 text-[10px] font-bold bg-surface border border-gray-200 text-gray-500 px-2 py-0.5 rounded-md">
                           PLU {p.plu}
                         </span>
                       </div>
@@ -2299,7 +2299,7 @@ function ImportPluModal({
           )}
         </div>
 
-        <div className="shrink-0 px-5 py-3 border-t border-gray-100 bg-white flex items-center justify-between gap-3">
+        <div className="shrink-0 px-5 py-3 border-t border-gray-100 bg-surface flex items-center justify-between gap-3">
           {result && !loading ? (
             <button
               onClick={() => {
@@ -2340,23 +2340,91 @@ function ImportPluModal({
 }
 
 /* ─── Wizard overlay ────────────────────────────── */
-function CampaignWizard({ onClose, onCreated }: { onClose: () => void; onCreated: (c: CampaignCardData) => void }) {
-  const [step, setStep] = useState<Step>(1);
-  const [selectedProducts, setSelectedProducts] = useState<Product[]>([]);
-  const [channels, setChannels] = useState<Record<string, boolean>>({ wa: true, email: true, sms: true });
+
+/** Reconstruye el estado inicial del wizard a partir de un borrador guardado.
+ *  El snapshot de productos vive en `draftState.products` (el wizard necesita
+ *  precio/imagen, que la API de campañas no devuelve). */
+function draftToWizardInit(draft: ApiCampaign) {
+  const ds = draft.draftState ?? null;
+  const products = (ds?.products ?? []) as Product[];
+  const msgs = draft.messages ?? [];
+  const wa = msgs.find((m) => m.channel === "whatsapp");
+  const email = msgs.find((m) => m.channel === "email");
+  const sms = msgs.find((m) => m.channel === "sms");
+  const content: GeneratedContent | null =
+    wa || email || sms
+      ? {
+          whatsapp: wa?.content ?? "",
+          email: { subject: email?.subject ?? "", body: email?.content ?? "" },
+          sms: sms?.content ?? "",
+        }
+      : null;
+
+  const channelKeys = Object.keys(CHANNEL_CFG) as (keyof typeof CHANNEL_CFG)[];
+  const channels: Record<string, boolean> = { wa: false, email: false, sms: false };
+  for (const ch of draft.channels ?? []) {
+    const key = channelKeys.find((k) => CHANNEL_TO_API[k] === ch);
+    if (key) channels[key] = true;
+  }
+  if (!channelKeys.some((k) => channels[k])) channels.wa = true;
+
+  const priorityChannel =
+    channelKeys.find((k) => CHANNEL_TO_API[k] === draft.priorityChannel) ?? "wa";
+  const mode: "multi" | "bundle" = draft.mode === "bundle" ? "bundle" : "multi";
+  const segKey = `${mode}|${products.map((p) => p.id).sort((a, b) => a - b).join(",")}`;
+
+  // El paso guardado no puede superar lo que se pueda reconstruir.
+  const maxStep: Step = content ? 4 : products.length ? 2 : 1;
+  const saved = (ds?.step ?? 4) as Step;
+  const step: Step = (saved > maxStep ? maxStep : saved) as Step;
+
+  return {
+    ds,
+    products,
+    content,
+    channels,
+    priorityChannel,
+    mode,
+    segKey,
+    step,
+    emailBlocks: (email?.emailBlocks as EmailBlock[] | null | undefined) ?? null,
+    emailHtml: email?.html ?? null,
+  };
+}
+
+function CampaignWizard({
+  draft = null,
+  onClose,
+  onCreated,
+}: {
+  /** Borrador a editar; null/undefined crea una campaña nueva. */
+  draft?: ApiCampaign | null;
+  onClose: () => void;
+  onCreated: (c: CampaignCardData) => void;
+}) {
+  const init = useMemo(() => (draft ? draftToWizardInit(draft) : null), [draft]);
+
+  const [step, setStep] = useState<Step>(init?.step ?? 1);
+  const [selectedProducts, setSelectedProducts] = useState<Product[]>(init?.products ?? []);
+  const [channels, setChannels] = useState<Record<string, boolean>>(
+    init?.channels ?? { wa: true, email: true, sms: true },
+  );
   // Canal prioritario de envío: el destinatario recibe un solo mensaje por él.
   // Por defecto whatsapp → email → sms (según el orden de activación).
-  const [priorityChannel, setPriorityChannel] = useState<keyof typeof CHANNEL_CFG>("wa");
+  const [priorityChannel, setPriorityChannel] = useState<keyof typeof CHANNEL_CFG>(
+    init?.priorityChannel ?? "wa",
+  );
   // Modal de carga de productos por PLU (archivo JSON/CSV/XLSX).
   const [importOpen, setImportOpen] = useState(false);
-  const [mode, setMode] = useState<"multi" | "bundle">("multi");
-  const [prompt, setPrompt] = useState("");
+  const [mode, setMode] = useState<"multi" | "bundle">(init?.mode ?? "multi");
+  const [prompt, setPrompt] = useState(draft?.prompt ?? "");
   // Nombre de la campaña (sugerido por IA en el paso 2, editable).
-  const [campaignName, setCampaignName] = useState("");
+  const [campaignName, setCampaignName] = useState(draft?.name ?? "");
   const [generating, setGenerating] = useState(false);
-  const [generated, setGenerated] = useState(false);
+  // Si el borrador trae contenido, el paso 2 aparece como ya generado.
+  const [generated, setGenerated] = useState(!!init?.content);
   const [genError, setGenError] = useState<string | null>(null);
-  const [content, setContent] = useState<GeneratedContent | null>(null);
+  const [content, setContent] = useState<GeneratedContent | null>(init?.content ?? null);
   const [editableWa, setEditableWa] = useState(false);
   const [editableEmail, setEditableEmail] = useState(false);
   const [editableSms, setEditableSms] = useState(false);
@@ -2365,8 +2433,8 @@ function CampaignWizard({ onClose, onCreated }: { onClose: () => void; onCreated
   const [savingDraft, setSavingDraft] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [emailDesignOpen, setEmailDesignOpen] = useState(false);
-  const [emailBlocks, setEmailBlocks] = useState<EmailBlock[] | null>(null);
-  const [emailHtml, setEmailHtml] = useState<string | null>(null);
+  const [emailBlocks, setEmailBlocks] = useState<EmailBlock[] | null>(init?.emailBlocks ?? null);
+  const [emailHtml, setEmailHtml] = useState<string | null>(init?.emailHtml ?? null);
 
   // ── Audiencia / segmentación ──
   // El paso "Público objetivo" corre la segmentación una sola vez por
@@ -2374,8 +2442,13 @@ function CampaignWizard({ onClose, onCreated }: { onClose: () => void; onCreated
   // conserva el resultado (botón "Siguiente"). Si cambias productos/modo, se
   // re-segmenta al volver (botón "Público objetivo").
   const segKey = `${mode}|${selectedProducts.map((p) => p.id).sort((a, b) => a - b).join(",")}`;
-  const [visitedAudience, setVisitedAudience] = useState(false);
-  const [reviewedSegKey, setReviewedSegKey] = useState<string | null>(null);
+  // Al reabrir un borrador en el paso 3/4 la segmentación ya está hecha: se
+  // marca como revisada para no volver a segmentar al entrar.
+  const reopenStep = init?.step ?? 1;
+  const [visitedAudience, setVisitedAudience] = useState(reopenStep >= 3);
+  const [reviewedSegKey, setReviewedSegKey] = useState<string | null>(
+    reopenStep >= 3 ? (init?.segKey ?? null) : null,
+  );
   const audienceUpToDate = visitedAudience && reviewedSegKey === segKey;
   const goToAudience = () => {
     setVisitedAudience(true);
@@ -2385,17 +2458,27 @@ function CampaignWizard({ onClose, onCreated }: { onClose: () => void; onCreated
   // ── Origen del público objetivo al lanzar la campaña ──
   // 'auto' → recomendación por producto · 'manual' → filtros manuales
   // (con audMix = sumar los manuales a la recomendación en lugar de reemplazar).
-  const [audSource, setAudSource] = useState<"auto" | "manual">("auto");
-  const [audMix, setAudMix] = useState(true);
+  const [audSource, setAudSource] = useState<"auto" | "manual">(init?.ds?.audSource ?? "auto");
+  const [audMix, setAudMix] = useState(init?.ds?.audMix ?? true);
   const manualF = useManualFilters();
+  // Restaura los filtros manuales guardados en el borrador (una sola vez al
+  // abrir). Se mezclan con los valores por defecto para tolerar borradores
+  // guardados con una versión anterior del panel de filtros.
+  useEffect(() => {
+    const saved = init?.ds?.filters as Partial<ManualFilterValues> | undefined;
+    if (saved) manualF.apply({ ...DEFAULT_FILTER_VALUES, ...saved });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Nº real de destinatarios que quedaron en cola (lo devuelve el backend al
   // lanzar; alimenta la vista de éxito de la revisión).
   const [sentAudience, setSentAudience] = useState<number | null>(null);
   // Público elegido en el paso "Público objetivo" para mostrarlo en la revisión.
-  const [audienceChosen, setAudienceChosen] = useState<{ count: number | null; label: string }>({
-    count: null,
-    label: "Recomendada por producto",
-  });
+  const [audienceChosen, setAudienceChosen] = useState<{ count: number | null; label: string }>(
+    init?.ds?.audienceChosen ?? {
+      count: draft?.audienceCount ?? null,
+      label: "Recomendada por producto",
+    },
+  );
 
   const toggleChannel = (c: string) =>
     setChannels((prev) => {
@@ -2472,9 +2555,11 @@ function CampaignWizard({ onClose, onCreated }: { onClose: () => void; onCreated
     }
   };
 
-  // Construye y persiste el registro de la campaña (mensajes, productos y
-  // canales). La usan tanto el envío como "Guardar borrador".
-  const createCampaignRecord = async () => {
+  // Construye y persiste el registro de la campaña (mensajes, productos,
+  // canales y estado del wizard). La usan tanto el envío como "Guardar
+  // borrador". Si venimos de un borrador actualiza el registro (conserva el id
+  // y el estado); si no, crea una campaña nueva.
+  const persistCampaignRecord = async () => {
     const primary = selectedProducts[0];
     const messages: {
       channel: CampaignChannel;
@@ -2499,7 +2584,7 @@ function CampaignWizard({ onClose, onCreated }: { onClose: () => void; onCreated
       messages.push({ channel: "sms", content: content.sms });
     }
 
-    return campaignsService.create({
+    const payload = {
       name:
         campaignName.trim() ||
         prompt.slice(0, 60) ||
@@ -2511,7 +2596,20 @@ function CampaignWizard({ onClose, onCreated }: { onClose: () => void; onCreated
       channels: activeChannelKeys().map((k) => CHANNEL_TO_API[k]),
       priorityChannel: CHANNEL_TO_API[priorityChannel],
       messages,
-    });
+      // Estado para reabrir el borrador en el wizard tal como quedó.
+      draftState: {
+        step,
+        products: selectedProducts,
+        audSource,
+        audMix,
+        audienceChosen,
+        filters: manualF.snapshot as unknown as Record<string, unknown>,
+      },
+    };
+
+    return draft
+      ? campaignsService.update(draft.id, payload)
+      : campaignsService.create(payload);
   };
 
   // Guarda la campaña como borrador (queda persistida en la base de datos).
@@ -2520,8 +2618,8 @@ function CampaignWizard({ onClose, onCreated }: { onClose: () => void; onCreated
     setSavingDraft(true);
     setSendError(null);
     try {
-      const created = await createCampaignRecord();
-      onCreated(apiToCard(created));
+      const saved = await persistCampaignRecord();
+      onCreated(apiToCard(saved));
       onClose();
     } catch (e) {
       setSendError(e instanceof Error ? e.message : "Error guardando el borrador");
@@ -2535,15 +2633,15 @@ function CampaignWizard({ onClose, onCreated }: { onClose: () => void; onCreated
     setSending(true);
     setSendError(null);
     try {
-      const created = await createCampaignRecord();
+      const saved = await persistCampaignRecord();
 
       let card: CampaignCardData;
       if (audSource === "auto") {
         // Recomendación de clientes (segmentación vía clustering-api según el modo).
         const gen = await campaignsService
-          .generateRecipients(created.id, 100000, undefined, undefined, mode)
+          .generateRecipients(saved.id, 100000, undefined, undefined, mode)
           .catch(() => null);
-        card = apiToCard(created);
+        card = apiToCard(saved);
         if (gen) card.audience = gen.total;
       } else {
         // Segmentación manual: los clientes que cumplen los filtros definidos.
@@ -2553,7 +2651,7 @@ function CampaignWizard({ onClose, onCreated }: { onClose: () => void; onCreated
           );
         }
         const updated = await campaignsService.applyAudience(
-          created.id,
+          saved.id,
           audMix ? "mixed" : "manual",
           { filters: manualF.buildFilters() },
         );
@@ -2574,12 +2672,14 @@ function CampaignWizard({ onClose, onCreated }: { onClose: () => void; onCreated
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-(--app-bg)">
       {/* Topbar */}
-      <div className="flex items-center justify-between px-6 py-3 bg-white border-b border-gray-100 shrink-0">
+      <div className="flex items-center justify-between px-6 py-3 bg-surface border-b border-gray-100 shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-xl bg-amber-400 flex items-center justify-center">
             <Zap size={15} className="text-amber-900" />
           </div>
-          <p className="font-bold text-gray-900 text-sm">Nueva campaña</p>
+          <p className="font-bold text-gray-900 text-sm">
+            {draft ? "Editar campaña" : "Nueva campaña"}
+          </p>
         </div>
         <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">
           <X size={16} />
@@ -2697,7 +2797,7 @@ function CampaignWizard({ onClose, onCreated }: { onClose: () => void; onCreated
       </div>
 
       {/* Footer institucional (mismo del panel, fondo blanco y letra negra) */}
-      <footer className="shrink-0 bg-white border-t border-gray-100">
+      <footer className="shrink-0 bg-surface border-t border-gray-100">
         <div className="flex flex-col md:flex-row items-center justify-center gap-x-3 gap-y-0.75 px-3 py-1.5 text-center">
           <a
             href="https://dsi.com.co"
@@ -2707,8 +2807,8 @@ function CampaignWizard({ onClose, onCreated }: { onClose: () => void; onCreated
           >
             <img src={footerLogo} alt="Mercaldas" className="h-3 w-auto object-contain" />
           </a>
-          <p className="text-[9px]" style={{ color: "rgba(0,0,0,0.65)" }}>
-            © 2026 Desarrollado por <span className="font-bold text-black/80">DSI SA</span> · Todos los derechos reservados
+          <p className="text-[9px] text-gray-500">
+            © 2026 Desarrollado por <span className="font-bold text-gray-800">DSI SA</span> · Todos los derechos reservados
           </p>
           <p className="text-[9px]" style={{ color: "rgba(0,0,0,0.45)" }}>
             Manizales, Caldas, Colombia
@@ -2986,7 +3086,7 @@ function ClientDataTable({
       </table>
       {tip && (
         <div
-          className="fixed z-[95] pointer-events-none rounded-lg bg-gray-900 text-white text-[11px] leading-snug px-3 py-2 shadow-xl"
+          className="fixed z-[95] pointer-events-none rounded-lg bg-inverse text-white text-[11px] leading-snug px-3 py-2 shadow-xl"
           style={{ left: tip.x, top: tip.y, width: 250 }}
         >
           {tip.text}
@@ -3074,7 +3174,7 @@ function ExplainModal({ ctx, onClose }: { ctx: ExplainContext; onClose: () => vo
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm cursor-pointer" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[85vh] flex flex-col overflow-hidden">
+      <div className="relative bg-surface rounded-2xl shadow-2xl w-full max-w-xl max-h-[85vh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-start justify-between px-6 py-4 border-b border-gray-100 shrink-0">
           <div className="min-w-0 pr-3">
@@ -3677,13 +3777,13 @@ function RecipientsModal({
     <div
       className={
         inline
-          ? "h-full flex flex-col overflow-hidden bg-white rounded-2xl border border-gray-200 shadow-sm"
+          ? "h-full flex flex-col overflow-hidden bg-surface rounded-2xl border border-gray-200 shadow-sm"
           : "fixed inset-0 z-50 flex items-center justify-center p-4"
       }
     >
       {!inline && <div className="absolute inset-0 bg-black/40 backdrop-blur-sm cursor-pointer" onClick={onClose} />}
       <div
-        className={`relative bg-white rounded-2xl flex flex-col overflow-hidden ${
+        className={`relative bg-surface rounded-2xl flex flex-col overflow-hidden ${
           inline ? "w-full h-full border-0 shadow-none" : "w-full max-w-4xl max-h-[85vh] shadow-2xl"
         }`}
       >
@@ -3728,14 +3828,14 @@ function RecipientsModal({
                 <button
                   onClick={() => setTab("seg")}
                   title="Clientes recomendados según el producto seleccionado"
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${tab === "seg" ? "bg-white shadow-sm text-gray-800" : "text-gray-500 hover:text-gray-700"}`}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${tab === "seg" ? "bg-surface shadow-sm text-gray-800" : "text-gray-500 hover:text-gray-700"}`}
                 >
                   Recomendados por producto
                 </button>
                 <button
                   onClick={() => setTab("all")}
                   title="Explora toda la base y segmenta manualmente por filtros"
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${tab === "all" ? "bg-white shadow-sm text-gray-800" : "text-gray-500 hover:text-gray-700"}`}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${tab === "all" ? "bg-surface shadow-sm text-gray-800" : "text-gray-500 hover:text-gray-700"}`}
                 >
                   Segmentación manual
                 </button>
@@ -3762,7 +3862,7 @@ function RecipientsModal({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={tab === "all" ? "Buscar por nombre, cédula, email o teléfono…" : "Buscar por nombre, email o teléfono…"}
-                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white"
+                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-300 bg-surface"
               />
             </div>
           </div>
@@ -3785,8 +3885,8 @@ function RecipientsModal({
               onClick={() => setFilterModalOpen(true)}
               className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl border-2 transition-all cursor-pointer ${
                 f.hasFilters
-                  ? "border-amber-400 bg-amber-50 text-amber-900 shadow-sm"
-                  : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:text-gray-800"
+                  ? "border-amber-400 bg-amber-50 text-amber-800 shadow-sm"
+                  : "border-gray-200 bg-surface text-gray-600 hover:border-gray-300 hover:text-gray-800"
               }`}
             >
               <SlidersHorizontal size={13} />
@@ -4054,7 +4154,7 @@ function RecipientsModal({
                           ? "Suma los clientes que cumplen los filtros a la audiencia actual"
                           : "Define filtros primero"
                       }
-                      className="px-3 py-1.5 text-xs font-bold text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="px-3 py-1.5 text-xs font-bold text-gray-700 bg-surface border border-gray-300 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       <Plus size={12} className="inline -mt-0.5 mr-1" />Añadir a la audiencia
                     </button>
@@ -4115,7 +4215,7 @@ function RangeInputs({
   hint?: string;
 }) {
   const inputCls =
-    "w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white disabled:bg-gray-50 disabled:text-gray-300 disabled:cursor-not-allowed";
+    "w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-300 bg-surface disabled:bg-gray-50 disabled:text-gray-300 disabled:cursor-not-allowed";
   return (
     <div title={disabled ? hint : undefined}>
       <label className={`block text-[11px] font-semibold mb-1 ${disabled ? "text-gray-300" : "text-gray-500"}`}>{label}</label>
@@ -4149,7 +4249,7 @@ function RangeInputs({
 /** Tarjeta de sección de filtros (ícono + título + grid de controles). */
 function FilterSection({ icon: Icon, title, children }: { icon: React.ElementType; title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-xl border border-gray-200 bg-white p-3">
+    <section className="rounded-xl border border-gray-200 bg-surface p-3">
       <header className="flex items-center gap-2 mb-3">
         <span className="w-6 h-6 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
           <Icon size={13} />
@@ -4247,11 +4347,11 @@ function MultiSelect({
         type="button"
         onClick={toggleOpen}
         disabled={disabled}
-        className={`w-full flex items-center justify-between gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border bg-white focus:outline-none transition-colors ${
+        className={`w-full flex items-center justify-between gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border bg-surface focus:outline-none transition-colors ${
           disabled
             ? "border-gray-100 text-gray-300 cursor-not-allowed"
             : values.length
-              ? "border-amber-400 bg-amber-50 text-amber-900 font-semibold shadow-sm"
+              ? "border-amber-400 bg-amber-50 text-amber-800 font-semibold shadow-sm"
               : "border-gray-200 text-gray-600 hover:border-gray-300"
         }`}
       >
@@ -4275,14 +4375,14 @@ function MultiSelect({
             maxHeight: PANEL_MAX_H,
             zIndex: 9999,
           }}
-          className="overflow-y-auto bg-white border border-gray-200 rounded-xl shadow-xl p-1.5"
+          className="overflow-y-auto bg-surface border border-gray-200 rounded-xl shadow-xl p-1.5"
         >
           <input
             autoFocus
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Buscar…"
-            className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg mb-1 focus:outline-none focus:ring-2 focus:ring-amber-300 sticky top-0 bg-white"
+            className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg mb-1 focus:outline-none focus:ring-2 focus:ring-amber-300 sticky top-0 bg-surface"
           />
           {shown.length === 0 ? (
             <p className="px-2 py-2 text-xs text-gray-400">Sin opciones</p>
@@ -4325,7 +4425,7 @@ function BoolCheck({
   return (
     <label
       title={disabled ? hint : undefined}
-      className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border bg-white text-xs cursor-pointer select-none ${
+      className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border bg-surface text-xs cursor-pointer select-none ${
         disabled
           ? "border-gray-100 text-gray-300 cursor-not-allowed opacity-70"
           : "border-gray-200 text-gray-600 hover:border-gray-300"
@@ -4461,7 +4561,7 @@ function ManualFiltersPanel({ f }: { f: ReturnType<typeof useManualFilters> }) {
   const optEstados = f.options?.estadosCiviles?.length ? f.options.estadosCiviles : FALLBACK_ESTADOS_CIVILES;
   const optSexos = f.options?.sexos?.length ? f.options.sexos : ["F", "M"];
   const inputCls =
-    "w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-300 transition-shadow";
+    "w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg bg-surface focus:outline-none focus:ring-2 focus:ring-amber-300 transition-shadow";
   return (
     <div className="space-y-3">
       <FilterSection icon={MapPin} title="Ubicación">
@@ -4630,7 +4730,7 @@ function ManualFilterChips({ f }: { f: ReturnType<typeof useManualFilters> }) {
       {chips.map((c) => (
         <span
           key={c.key}
-          className="inline-flex items-center gap-1 pl-2.5 pr-1 py-1 rounded-full bg-amber-50 border border-amber-200 text-[11px] font-semibold text-amber-900"
+          className="inline-flex items-center gap-1 pl-2.5 pr-1 py-1 rounded-full bg-amber-50 border border-amber-200 text-[11px] font-semibold text-amber-800"
         >
           {c.label}
           <button
@@ -4703,7 +4803,7 @@ function SegmentFiltersModal({
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm cursor-pointer" onClick={onClose} />
       <div className="relative bg-gray-50 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-start justify-between px-6 py-4 bg-white border-b border-gray-200 shrink-0">
+        <div className="flex items-start justify-between px-6 py-4 bg-surface border-b border-gray-200 shrink-0">
           <div className="min-w-0 pr-3">
             <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
               <SlidersHorizontal size={18} className="text-amber-600" /> Filtros de segmentación
@@ -4754,7 +4854,7 @@ function SegmentFiltersModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between gap-2 px-6 py-3 bg-white border-t border-gray-200 shrink-0">
+        <div className="flex items-center justify-between gap-2 px-6 py-3 bg-surface border-t border-gray-200 shrink-0">
           <button
             onClick={() => f.reset()}
             disabled={n === 0}
@@ -4896,7 +4996,7 @@ function ManualSegModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm cursor-pointer" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden">
+      <div className="relative bg-surface rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-start justify-between px-6 py-4 border-b border-gray-100 shrink-0">
           <div className="min-w-0 pr-3">
@@ -5012,7 +5112,7 @@ function ManualSegModal({
               onClick={() => void handleAdd(true)}
               disabled={selected.size === 0 || adding}
               title="Reemplaza TODO el público actual por los seleccionados"
-              className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-gray-700 bg-surface border border-gray-300 hover:bg-gray-100 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <RefreshCw size={14} /> Reemplazar audiencia
             </button>
@@ -5059,7 +5159,7 @@ function ConfirmModal({
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm cursor-pointer" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+      <div className="relative bg-surface rounded-2xl shadow-2xl w-full max-w-sm p-6">
         <h3 className="text-lg font-bold text-gray-900">{title}</h3>
         <p className="text-sm text-gray-500 mt-2 leading-relaxed">{message}</p>
         {target && (
@@ -5211,7 +5311,7 @@ function RelaunchModal({
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm cursor-pointer" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[88vh] flex flex-col overflow-hidden">
+      <div className="relative bg-surface rounded-2xl shadow-2xl w-full max-w-lg max-h-[88vh] flex flex-col overflow-hidden">
         <div className="flex items-start justify-between gap-3 px-6 py-4 border-b border-gray-100 shrink-0">
           <div className="min-w-0">
             <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
@@ -5323,7 +5423,7 @@ function RelaunchModal({
                     className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border-2 text-xs font-semibold transition-all ${
                       on
                         ? `${cfg.bg} text-white border-transparent shadow-sm`
-                        : "border-gray-200 text-gray-400 bg-white hover:border-gray-300"
+                        : "border-gray-200 text-gray-400 bg-surface hover:border-gray-300"
                     }`}
                   >
                     <cfg.icon size={14} />
@@ -5444,7 +5544,7 @@ function ProductFilterModal({
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm cursor-pointer" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden">
+      <div className="relative bg-surface rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
           <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
             <Filter size={17} className="text-amber-600" /> Filtrar por producto
@@ -5565,7 +5665,7 @@ function HowItWorksModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm cursor-pointer" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6">
+      <div className="relative bg-surface rounded-2xl shadow-2xl w-full max-w-lg p-6">
         <button
           onClick={onClose}
           aria-label="Cerrar"
@@ -5624,7 +5724,7 @@ function HistoryModal({
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm cursor-pointer" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden">
+      <div className="relative bg-surface rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
           <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
             <History size={18} className="text-amber-600" /> Historial de la campaña
@@ -5757,7 +5857,7 @@ function EditCampaignModal({
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm cursor-pointer" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
+      <div className="relative bg-surface rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
           <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
             <Pencil size={17} className="text-amber-600" /> Editar campaña
@@ -5781,7 +5881,7 @@ function EditCampaignModal({
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-300 bg-surface"
                 />
               </div>
 
@@ -5801,7 +5901,7 @@ function EditCampaignModal({
                           value={msgs[ch]?.subject ?? ""}
                           onChange={(e) => setMsgs((prev) => ({ ...prev, [ch]: { ...prev[ch], subject: e.target.value } }))}
                           placeholder="Asunto"
-                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl mb-2 focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white"
+                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl mb-2 focus:outline-none focus:ring-2 focus:ring-amber-300 bg-surface"
                         />
                       )}
                       <textarea
@@ -5809,7 +5909,7 @@ function EditCampaignModal({
                         onChange={(e) => setMsgs((prev) => ({ ...prev, [ch]: { ...prev[ch], content: e.target.value } }))}
                         placeholder="Contenido del mensaje…"
                         rows={3}
-                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white resize-y"
+                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-300 bg-surface resize-y"
                       />
                     </div>
                   );
@@ -5819,10 +5919,10 @@ function EditCampaignModal({
               <div className="flex items-center justify-between">
                 <p className="text-xs font-semibold text-gray-800">¿Programar el envío?</p>
                 <div className="flex items-center bg-gray-100 rounded-xl p-1">
-                  <button onClick={() => setScheduled(false)} className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${!scheduled ? "bg-white shadow-sm text-gray-800" : "text-gray-500"}`}>
+                  <button onClick={() => setScheduled(false)} className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${!scheduled ? "bg-surface shadow-sm text-gray-800" : "text-gray-500"}`}>
                     Ahora
                   </button>
-                  <button onClick={() => setScheduled(true)} className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${scheduled ? "bg-white shadow-sm text-gray-800" : "text-gray-500"}`}>
+                  <button onClick={() => setScheduled(true)} className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${scheduled ? "bg-surface shadow-sm text-gray-800" : "text-gray-500"}`}>
                     Programar
                   </button>
                 </div>
@@ -5831,11 +5931,11 @@ function EditCampaignModal({
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs text-gray-500 mb-1 block">Fecha</label>
-                    <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white" />
+                    <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-300 bg-surface" />
                   </div>
                   <div>
                     <label className="text-xs text-gray-500 mb-1 block">Hora</label>
-                    <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white" />
+                    <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-300 bg-surface" />
                   </div>
                 </div>
               )}
@@ -5886,7 +5986,7 @@ function CampaignCard({
   const isManual = c.audienceMode === "manual";
 
   return (
-    <div className="relative flex flex-col h-full bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-md transition-shadow">
+    <div className="relative flex flex-col h-full bg-surface rounded-2xl border border-gray-100 p-5 hover:shadow-md transition-shadow">
       {/* Encabezado: título completo + estado y fecha en la esquina */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -6145,7 +6245,7 @@ function CampaignTable({
 }) {
   const thBase = "sticky top-0 z-10 text-[11px] font-bold text-gray-400 uppercase tracking-wider px-3 py-3 bg-gray-50 border-b border-gray-100";
   return (
-    <div className="bg-white rounded-2xl border border-gray-100">
+    <div className="bg-surface rounded-2xl border border-gray-100">
       <table className="w-full table-fixed border-separate border-spacing-0">
         <thead>
           <tr>
@@ -6178,8 +6278,29 @@ function CampaignTable({
 }
 
 /* ─── Main view ─────────────────────────────────── */
+/** Hidrata los productos de un borrador antiguo (guardado antes de que
+ *  existiera `draftState`) buscándolos en el catálogo por id/nombre. Devuelve
+ *  null si no se pudieron recuperar todos: en ese caso se usa el modal simple
+ *  para no perder productos al reabrir el wizard. */
+async function hydrateDraftProducts(c: ApiCampaign): Promise<Product[] | null> {
+  const refs = c.products ?? [];
+  if (!refs.length) return [];
+  const found = new Map<number, Product>();
+  for (const ref of refs) {
+    try {
+      const list = await catalogService.getProducts({ search: ref.name, limit: 5 });
+      const match = list.find((p) => p.id === ref.id);
+      if (match) found.set(ref.id, match);
+    } catch {
+      /* se valida abajo que estén todos */
+    }
+  }
+  return found.size === refs.length ? refs.map((r) => found.get(r.id) as Product) : null;
+}
+
 export default function Campaigns() {
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardDraft, setWizardDraft] = useState<ApiCampaign | null>(null);
   const [campaigns, setCampaigns] = useState<CampaignCardData[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -6253,7 +6374,39 @@ export default function Campaigns() {
   }, []);
 
   const handleCreated = (c: CampaignCardData) => {
-    setCampaigns((prev) => [c, ...prev]);
+    setCampaigns((prev) =>
+      prev.some((x) => x.id === c.id) ? prev.map((x) => (x.id === c.id ? c : x)) : [c, ...prev],
+    );
+  };
+
+  // Editar: los borradores guardados desde el wizard se reabren en el wizard
+  // (paso a paso, con su estado reconstruido). El resto de campañas usan el
+  // modal simple. Los borradores antiguos (guardados antes de que existiera
+  // `draftState`) también abren en el wizard, hidratando sus productos desde el
+  // catálogo; si no se pueden recuperar todos, se usa el modal para no perder
+  // productos al guardar.
+  const handleEditCampaign = async (c: CampaignCardData) => {
+    if (c.status !== "borrador") {
+      setEditing(c);
+      return;
+    }
+    try {
+      const full = await campaignsService.get(c.id);
+      if (full.draftState) {
+        setWizardDraft(full);
+        setWizardOpen(true);
+        return;
+      }
+      const products = await hydrateDraftProducts(full);
+      if (products) {
+        setWizardDraft({ ...full, draftState: { step: 4, products } });
+        setWizardOpen(true);
+      } else {
+        setEditing(c);
+      }
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : "No se pudo cargar la campaña");
+    }
   };
 
   const handleDelete = async () => {
@@ -6323,7 +6476,10 @@ export default function Campaigns() {
             <p className="text-sm text-gray-500 mt-0.5">Automatización de marketing omnicanal en 3 pasos</p>
           </div>
           <button
-            onClick={() => setWizardOpen(true)}
+            onClick={() => {
+              setWizardDraft(null);
+              setWizardOpen(true);
+            }}
             className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-amber-900 bg-amber-400 hover:bg-amber-500 rounded-xl transition-colors shadow-sm hover:shadow-md"
           >
             <Plus size={15} /> Nueva Campaña
@@ -6338,7 +6494,7 @@ export default function Campaigns() {
             { label: "Tasa de apertura prom.", value: `${avgOpen.toFixed(0)}%`, icon: Eye, color: "bg-green-100 text-green-600" },
             { label: "Conversiones totales", value: totalConv.toLocaleString(), icon: TrendingUp, color: "bg-purple-100 text-purple-600" },
           ].map((k) => (
-            <div key={k.label} className="bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-sm transition-shadow">
+            <div key={k.label} className="bg-surface rounded-2xl border border-gray-100 p-5 hover:shadow-sm transition-shadow">
               <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-3 ${k.color}`}>
                 <k.icon size={16} />
               </div>
@@ -6356,7 +6512,7 @@ export default function Campaigns() {
             className={`flex items-center gap-2 px-3.5 py-2.5 text-sm font-semibold rounded-xl border transition-colors shrink-0 ${
               productFilter.length
                 ? "bg-amber-400 text-amber-900 border-transparent shadow-sm"
-                : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
+                : "bg-surface text-gray-600 border-gray-200 hover:border-gray-300"
             }`}
           >
             <Filter size={15} />
@@ -6373,10 +6529,10 @@ export default function Campaigns() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar por nombre o código..."
-              className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white"
+              className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-300 bg-surface"
             />
           </div>
-          <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-xl p-1">
+          <div className="flex items-center gap-1 bg-surface border border-gray-200 rounded-xl p-1">
             {(["todos", "borrador", "programada", "enviando", "enviada", "fallida"] as const).map((f) => (
               <button
                 key={f}
@@ -6387,7 +6543,7 @@ export default function Campaigns() {
               </button>
             ))}
           </div>
-          <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-xl p-1" role="group" aria-label="Vista del listado">
+          <div className="flex items-center gap-1 bg-surface border border-gray-200 rounded-xl p-1" role="group" aria-label="Vista del listado">
             <button
               onClick={() => changeView("grid")}
               title="Vista de tarjetas"
@@ -6412,7 +6568,7 @@ export default function Campaigns() {
         {loading ? (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-48 bg-white rounded-2xl border border-gray-100 animate-pulse" />
+              <div key={i} className="h-48 bg-surface rounded-2xl border border-gray-100 animate-pulse" />
             ))}
           </div>
         ) : loadError ? (
@@ -6431,7 +6587,7 @@ export default function Campaigns() {
                   c={c}
                   onViewClients={() => setClientsModal(c)}
                   onManualSeg={() => setManualSeg(c)}
-                  onEdit={() => setEditing(c)}
+                  onEdit={() => void handleEditCampaign(c)}
                   onRelaunch={() => setRelaunching(c)}
                   onHistory={() => void handleOpenHistory(c)}
                   onDelete={() => setDeleting(c)}
@@ -6443,7 +6599,7 @@ export default function Campaigns() {
               campaigns={filtered}
               onViewClients={(c) => setClientsModal(c)}
               onManualSeg={(c) => setManualSeg(c)}
-              onEdit={(c) => setEditing(c)}
+              onEdit={(c) => void handleEditCampaign(c)}
               onRelaunch={(c) => setRelaunching(c)}
               onHistory={(c) => void handleOpenHistory(c)}
               onDelete={(c) => setDeleting(c)}
@@ -6457,7 +6613,10 @@ export default function Campaigns() {
             <p className="text-sm font-semibold text-gray-700">Sin campañas</p>
             <p className="text-xs text-gray-400 mt-1 mb-4">Crea tu primera campaña omnicanal ahora</p>
             <button
-              onClick={() => setWizardOpen(true)}
+              onClick={() => {
+                setWizardDraft(null);
+                setWizardOpen(true);
+              }}
               className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-amber-900 bg-amber-400 hover:bg-amber-500 rounded-xl transition-colors"
             >
               <Plus size={14} /> Nueva Campaña
@@ -6468,7 +6627,15 @@ export default function Campaigns() {
       </div>
 
       {wizardOpen && (
-        <CampaignWizard onClose={() => setWizardOpen(false)} onCreated={handleCreated} />
+        <CampaignWizard
+          key={wizardDraft?.id ?? "new"}
+          draft={wizardDraft}
+          onClose={() => {
+            setWizardOpen(false);
+            setWizardDraft(null);
+          }}
+          onCreated={handleCreated}
+        />
       )}
 
       {howItWorksOpen && <HowItWorksModal onClose={() => setHowItWorksOpen(false)} />}

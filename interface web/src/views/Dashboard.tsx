@@ -171,7 +171,7 @@ function Modal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 cursor-pointer" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col"
+        className="bg-surface rounded-2xl shadow-xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
@@ -202,7 +202,7 @@ function StatCardsSkeleton({
     return (
       <>
         {items.map((_, i) => (
-          <div key={i} className="bg-white rounded-2xl border border-gray-100 px-5 py-4 flex items-center gap-4 animate-pulse">
+          <div key={i} className="bg-surface rounded-2xl border border-gray-100 px-5 py-4 flex items-center gap-4 animate-pulse">
             <div className="w-6 h-6 rounded-md bg-gray-200 shrink-0" />
             <div className="space-y-2">
               <div className="h-5 w-24 rounded bg-gray-200" />
@@ -216,7 +216,7 @@ function StatCardsSkeleton({
   return (
     <>
       {items.map((_, i) => (
-        <div key={i} className="bg-white rounded-2xl border border-gray-100 p-5 animate-pulse">
+        <div key={i} className="bg-surface rounded-2xl border border-gray-100 p-5 animate-pulse">
           <div className="w-10 h-10 rounded-xl bg-gray-200 mb-4" />
           <div className="h-7 w-24 rounded bg-gray-200 mb-2" />
           <div className="h-4 w-32 rounded bg-gray-100" />
@@ -278,7 +278,7 @@ function EmptyState({ icon: Icon, message }: { icon: React.ElementType; message:
 function ChartTooltip({ active, payload, label, metric }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-lg px-4 py-3">
+    <div className="bg-surface border border-gray-200 rounded-xl shadow-lg px-4 py-3">
       <p className="text-xs font-semibold text-gray-500 mb-1">{label}</p>
       {payload.map((p: any) => (
         <p key={p.name} className="text-sm font-bold" style={{ color: p.color || '#F59E0B' }}>
@@ -508,7 +508,7 @@ export default function Dashboard({ userName = 'Usuario', onNavigate }: Dashboar
             setRefreshKey((k) => k + 1);
           }}
           disabled={refreshing}
-          className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-60"
+          className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 bg-surface border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-60"
         >
           <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
           Actualizar
@@ -544,7 +544,7 @@ export default function Dashboard({ userName = 'Usuario', onNavigate }: Dashboar
             <button
               key={c.label}
               onClick={() => openModal(c.modal)}
-              className="bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-md transition-shadow text-left cursor-pointer"
+              className="bg-surface rounded-2xl border border-gray-100 p-5 hover:shadow-md transition-shadow text-left cursor-pointer"
             >
               <div className="flex items-start justify-between mb-4">
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${c.accent}`}>
@@ -567,7 +567,7 @@ export default function Dashboard({ userName = 'Usuario', onNavigate }: Dashboar
             <button
               key={c.label}
               onClick={() => openModal(c.modal)}
-              className="bg-white rounded-2xl border border-gray-100 px-5 py-4 flex items-center gap-4 hover:shadow-md transition-shadow cursor-pointer text-left"
+              className="bg-surface rounded-2xl border border-gray-100 px-5 py-4 flex items-center gap-4 hover:shadow-md transition-shadow cursor-pointer text-left"
             >
               <c.icon size={22} className={c.color} />
               <div>
@@ -583,7 +583,7 @@ export default function Dashboard({ userName = 'Usuario', onNavigate }: Dashboar
       <div className="grid lg:grid-cols-3 gap-4">
 
         {/* Area chart: revenue / orders by day */}
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 p-5">
+        <div className="lg:col-span-2 bg-surface rounded-2xl border border-gray-100 p-5">
           <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
             <div>
               <h3 className="font-semibold text-gray-900">{chartTitle} por Día</h3>
@@ -596,7 +596,7 @@ export default function Dashboard({ userName = 'Usuario', onNavigate }: Dashboar
                   onClick={() => setChartMetric('revenue')}
                   className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all ${
                     chartMetric === 'revenue'
-                      ? 'bg-white text-gray-800 shadow-sm'
+                      ? 'bg-surface text-gray-800 shadow-sm'
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
@@ -606,7 +606,7 @@ export default function Dashboard({ userName = 'Usuario', onNavigate }: Dashboar
                   onClick={() => setChartMetric('orders')}
                   className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all ${
                     chartMetric === 'orders'
-                      ? 'bg-white text-gray-800 shadow-sm'
+                      ? 'bg-surface text-gray-800 shadow-sm'
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
@@ -621,7 +621,7 @@ export default function Dashboard({ userName = 'Usuario', onNavigate }: Dashboar
                     onClick={() => setRevenuePeriod(p)}
                     className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all ${
                       revenuePeriod === p
-                        ? 'bg-white text-gray-800 shadow-sm'
+                        ? 'bg-surface text-gray-800 shadow-sm'
                         : 'text-gray-500 hover:text-gray-700'
                     }`}
                   >
@@ -664,7 +664,7 @@ export default function Dashboard({ userName = 'Usuario', onNavigate }: Dashboar
         </div>
 
         {/* Bar chart: sales breakdown */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+        <div className="bg-surface rounded-2xl border border-gray-100 p-5">
           {/* breakdown tabs */}
           <div className="flex items-center gap-1 mb-2 overflow-x-auto">
             {BREAKDOWN_TABS.map((t) => (
@@ -696,7 +696,7 @@ export default function Dashboard({ userName = 'Usuario', onNavigate }: Dashboar
                     onClick={() => setBreakdownPeriod(p)}
                     className={`px-2 py-0.5 text-[10px] font-semibold rounded transition-all ${
                       breakdownPeriod === p
-                        ? 'bg-white text-gray-800 shadow-sm'
+                        ? 'bg-surface text-gray-800 shadow-sm'
                         : 'text-gray-500 hover:text-gray-700'
                     }`}
                   >
@@ -745,7 +745,7 @@ export default function Dashboard({ userName = 'Usuario', onNavigate }: Dashboar
       <div className="grid lg:grid-cols-3 gap-4">
 
         {/* Recent orders */}
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100">
+        <div className="lg:col-span-2 bg-surface rounded-2xl border border-gray-100">
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
             <h3 className="font-semibold text-gray-900">Pedidos Recientes</h3>
             <button
@@ -797,7 +797,7 @@ export default function Dashboard({ userName = 'Usuario', onNavigate }: Dashboar
         </div>
 
         {/* Banners & Popups summary */}
-        <div className="bg-white rounded-2xl border border-gray-100">
+        <div className="bg-surface rounded-2xl border border-gray-100">
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
             <h3 className="font-semibold text-gray-900">Banners & Popups</h3>
             <button

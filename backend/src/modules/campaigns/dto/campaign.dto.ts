@@ -33,6 +33,36 @@ export class CampaignMessageDto {
   emailBlocks?: Record<string, unknown>;
 }
 
+/** Estado del wizard (paso actual, productos elegidos, filtros manuales…) para
+ *  reabrir un borrador en el editor paso a paso y reconstruir dónde iba. */
+export class CampaignDraftStateDto {
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  step?: number;
+
+  @IsOptional()
+  @IsArray()
+  @IsObject({ each: true })
+  products?: Record<string, unknown>[];
+
+  @IsOptional()
+  @IsIn(['auto', 'manual'])
+  audSource?: 'auto' | 'manual';
+
+  @IsOptional()
+  @IsBoolean()
+  audMix?: boolean;
+
+  @IsOptional()
+  @IsObject()
+  audienceChosen?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsObject()
+  filters?: Record<string, unknown>;
+}
+
 export class CreateCampaignDto {
   @IsString()
   name: string;
@@ -76,6 +106,11 @@ export class CreateCampaignDto {
   @IsArray()
   @Type(() => CampaignMessageDto)
   messages?: CampaignMessageDto[];
+
+  @IsOptional()
+  @IsObject()
+  @Type(() => CampaignDraftStateDto)
+  draftState?: CampaignDraftStateDto;
 }
 
 export class UpdateCampaignDto {
@@ -126,6 +161,11 @@ export class UpdateCampaignDto {
   @IsArray()
   @Type(() => CampaignMessageDto)
   messages?: CampaignMessageDto[];
+
+  @IsOptional()
+  @IsObject()
+  @Type(() => CampaignDraftStateDto)
+  draftState?: CampaignDraftStateDto;
 }
 
 export class GenerateRecipientsDto {

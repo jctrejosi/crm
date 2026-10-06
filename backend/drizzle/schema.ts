@@ -3969,6 +3969,10 @@ export const campaigns = pgTable(
     audienceMode: varchar('audience_mode', { length: 10 })
       .default('auto')
       .notNull(),
+    // Estado del wizard paso a paso (paso actual, productos elegidos, filtros
+    // manuales…). Permite reabrir un borrador en el editor y reconstruir dónde
+    // iba el usuario. Solo aplica a borradores.
+    draftState: jsonb('draft_state'),
     status: campaignStatusEnum('status').default('borrador').notNull(),
     // Público: lo llena la recomendación de clientes (aleatoria por ahora,
     // segmentación inteligente después)

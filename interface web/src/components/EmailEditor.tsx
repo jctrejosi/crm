@@ -704,7 +704,7 @@ export default function EmailEditor({
   return (
     <div className="fixed inset-0 z-[70] flex flex-col bg-gray-100">
       {/* ══ Toolbar ══ */}
-      <div className="flex items-center gap-3 px-4 py-2.5 bg-white border-b border-gray-200 shrink-0">
+      <div className="flex items-center gap-3 px-4 py-2.5 bg-surface border-b border-gray-200 shrink-0">
         <p className="font-bold text-gray-900 text-sm">✉️ Diseñador de correo</p>
         <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">arrastra y suelta bloques</span>
 
@@ -716,7 +716,7 @@ export default function EmailEditor({
             {"{ }"} Variables <ChevronDown size={12} />
           </button>
           {tagsOpen && (
-            <div className="absolute top-full left-0 mt-1 w-64 bg-white rounded-xl shadow-xl border border-gray-100 z-20 py-1.5">
+            <div className="absolute top-full left-0 mt-1 w-64 bg-surface rounded-xl shadow-xl border border-gray-100 z-20 py-1.5">
               <p className="px-3 py-1 text-[10px] text-gray-400 font-semibold uppercase">Campos personalizados</p>
               {MERGE_TAGS.map((t) => (
                 <button
@@ -783,7 +783,7 @@ export default function EmailEditor({
 
       <div className="flex-1 flex overflow-hidden">
         {/* ══ Paleta ══ */}
-        <aside className="w-56 shrink-0 bg-white border-r border-gray-200 overflow-y-auto p-3">
+        <aside className="w-56 shrink-0 bg-surface border-r border-gray-200 overflow-y-auto p-3">
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-2 px-1">Bloques</p>
           <div className="space-y-1.5">
             {BLOCK_PALETTE.map((p) => (
@@ -812,7 +812,7 @@ export default function EmailEditor({
         {/* ══ Lienzo ══ */}
         <div className="flex-1 overflow-y-auto py-6">
           <div className="max-w-[620px] mx-auto">
-            <div className="bg-white rounded-xl shadow-sm min-h-[300px] p-6 space-y-3">
+            <div className="bg-surface rounded-xl shadow-sm min-h-[300px] p-6 space-y-3">
               {blocks.length === 0 && (
                 <div className="h-64 flex items-center justify-center text-gray-300 text-sm border-2 border-dashed border-gray-200 rounded-xl">
                   Arrastra bloques desde la barra lateral
@@ -866,7 +866,7 @@ export default function EmailEditor({
                             e.dataTransfer.setData("text/email-block", JSON.stringify({ kind: "move", id: b.id }));
                             e.dataTransfer.effectAllowed = "move";
                           }}
-                          className="w-6 h-8 bg-white border border-gray-200 rounded-md flex items-center justify-center text-gray-400 hover:text-gray-700 shadow-sm cursor-grab active:cursor-grabbing"
+                          className="w-6 h-8 bg-surface border border-gray-200 rounded-md flex items-center justify-center text-gray-400 hover:text-gray-700 shadow-sm cursor-grab active:cursor-grabbing"
                           title="Arrastrar para reordenar"
                         >
                           <GripVertical size={14} />
@@ -878,14 +878,14 @@ export default function EmailEditor({
                       <div className="absolute -right-1 -top-1 z-10 hidden group-hover:flex gap-1">
                         <button
                           onClick={(e) => { e.stopPropagation(); duplicateBlock(b.id); }}
-                          className="w-6 h-6 bg-white border border-gray-200 rounded-md flex items-center justify-center text-gray-400 hover:text-gray-700 shadow-sm"
+                          className="w-6 h-6 bg-surface border border-gray-200 rounded-md flex items-center justify-center text-gray-400 hover:text-gray-700 shadow-sm"
                           title="Duplicar"
                         >
                           <Copy size={11} />
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); removeBlock(b.id); }}
-                          className="w-6 h-6 bg-white border border-gray-200 rounded-md flex items-center justify-center text-gray-400 hover:text-red-600 shadow-sm"
+                          className="w-6 h-6 bg-surface border border-gray-200 rounded-md flex items-center justify-center text-gray-400 hover:text-red-600 shadow-sm"
                           title="Eliminar"
                         >
                           <Trash2 size={11} />
@@ -920,7 +920,7 @@ export default function EmailEditor({
         </div>
 
         {/* ══ Panel de propiedades ══ */}
-        <aside className="w-64 shrink-0 bg-white border-l border-gray-200 overflow-y-auto">
+        <aside className="w-64 shrink-0 bg-surface border-l border-gray-200 overflow-y-auto">
           <PropertiesPanel
             block={selected}
             onChange={(props) => selected && updateBlock(selected.id, props)}
@@ -933,7 +933,7 @@ export default function EmailEditor({
       {/* ══ Modal exportar HTML ══ */}
       {htmlOpen && (
         <div className="fixed inset-0 z-[80] bg-black/40 flex items-center justify-center p-6 cursor-pointer" onClick={() => setHtmlOpen(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-5" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-surface rounded-2xl shadow-2xl w-full max-w-2xl p-5" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-3">
               <p className="font-bold text-gray-900 text-sm">HTML del correo</p>
               <button onClick={() => setHtmlOpen(false)} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
@@ -1005,7 +1005,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 const inputCls =
-  "w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white";
+  "w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-300 bg-surface";
 
 function PropertiesPanel({
   block,
@@ -1051,7 +1051,7 @@ function PropertiesPanel({
             />
           </Field>
           <Field label="Color">
-            <input type="color" value={p.color ?? "#1F2937"} onChange={(e) => onChange({ color: e.target.value })} className="w-full h-8 rounded-lg border border-gray-200 bg-white cursor-pointer" />
+            <input type="color" value={p.color ?? "#1F2937"} onChange={(e) => onChange({ color: e.target.value })} className="w-full h-8 rounded-lg border border-gray-200 bg-surface cursor-pointer" />
           </Field>
           <Field label="Alineación">
             <div className="flex gap-1.5">
@@ -1139,11 +1139,11 @@ function PropertiesPanel({
             <div className="flex gap-3">
               <div>
                 <p className="text-[10px] text-gray-400 mb-0.5">Fondo</p>
-                <input type="color" value={p.bg ?? "#FBBF24"} onChange={(e) => onChange({ bg: e.target.value })} className="w-12 h-7 rounded border border-gray-200 bg-white cursor-pointer" />
+                <input type="color" value={p.bg ?? "#FBBF24"} onChange={(e) => onChange({ bg: e.target.value })} className="w-12 h-7 rounded border border-gray-200 bg-surface cursor-pointer" />
               </div>
               <div>
                 <p className="text-[10px] text-gray-400 mb-0.5">Texto</p>
-                <input type="color" value={p.color ?? "#78350F"} onChange={(e) => onChange({ color: e.target.value })} className="w-12 h-7 rounded border border-gray-200 bg-white cursor-pointer" />
+                <input type="color" value={p.color ?? "#78350F"} onChange={(e) => onChange({ color: e.target.value })} className="w-12 h-7 rounded border border-gray-200 bg-surface cursor-pointer" />
               </div>
             </div>
           </Field>
@@ -1175,7 +1175,7 @@ function PropertiesPanel({
             <input type="range" min={20} max={100} value={p.width ?? 100} onChange={(e) => onChange({ width: Number(e.target.value) })} className="w-full" />
           </Field>
           <Field label="Color">
-            <input type="color" value={p.dividerColor ?? "#E5E7EB"} onChange={(e) => onChange({ dividerColor: e.target.value })} className="w-full h-8 rounded-lg border border-gray-200 bg-white cursor-pointer" />
+            <input type="color" value={p.dividerColor ?? "#E5E7EB"} onChange={(e) => onChange({ dividerColor: e.target.value })} className="w-full h-8 rounded-lg border border-gray-200 bg-surface cursor-pointer" />
           </Field>
           <Field label="Estilo">
             <div className="flex gap-1.5">
@@ -1255,7 +1255,7 @@ function PropertiesPanel({
             </div>
           </Field>
           <Field label="Color de íconos">
-            <input type="color" value={p.iconColor ?? "#6B7280"} onChange={(e) => onChange({ iconColor: e.target.value })} className="w-full h-8 rounded-lg border border-gray-200 bg-white cursor-pointer" />
+            <input type="color" value={p.iconColor ?? "#6B7280"} onChange={(e) => onChange({ iconColor: e.target.value })} className="w-full h-8 rounded-lg border border-gray-200 bg-surface cursor-pointer" />
           </Field>
           <Field label={`Tamaño (${p.iconSize ?? 22}px)`}>
             <input type="range" min={16} max={32} value={p.iconSize ?? 22} onChange={(e) => onChange({ iconSize: Number(e.target.value) })} className="w-full" />

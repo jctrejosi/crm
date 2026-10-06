@@ -1,3 +1,5 @@
+import type { CatalogProduct } from "./catalog.service";
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3100";
 
 export type CampaignChannel = "whatsapp" | "email" | "sms";
@@ -15,6 +17,23 @@ export interface CampaignMessage {
   content?: string | null;
   html?: string | null;
   emailBlocks?: unknown;
+}
+
+/** Estado del wizard paso a paso que se guarda con el borrador para poder
+ *  reabrirlo en el editor y reconstruir dónde iba el usuario. */
+export interface CampaignDraftState {
+  /** Paso del wizard en el que quedó el borrador. */
+  step?: 1 | 2 | 3 | 4;
+  /** Snapshot de los productos elegidos (el wizard necesita precio/imagen). */
+  products?: CatalogProduct[];
+  /** Origen del público objetivo elegido en el paso 3. */
+  audSource?: "auto" | "manual";
+  /** Sumar los filtros manuales a la recomendación en vez de reemplazarla. */
+  audMix?: boolean;
+  /** Público elegido en el paso 3 (se muestra en la revisión). */
+  audienceChosen?: { count: number | null; label: string };
+  /** Valores crudos del panel de filtros manuales (ManualFilterValues). */
+  filters?: Record<string, unknown>;
 }
 
 export interface Campaign {
@@ -40,6 +59,8 @@ export interface Campaign {
   messages: CampaignMessage[];
   product: { id: number; name: string } | null;
   products?: { id: number; name: string }[];
+  /** Estado del wizard (solo en borradores guardados desde el editor). */
+  draftState?: CampaignDraftState | null;
 }
 
 export interface CampaignHistoryEntry {
@@ -69,6 +90,7 @@ export interface CreateCampaignPayload {
   channels?: CampaignChannel[];
   priorityChannel?: CampaignChannel;
   scheduledAt?: string;
+  draftState?: CampaignDraftState;
   messages?: {
     channel: CampaignChannel;
     subject?: string;
