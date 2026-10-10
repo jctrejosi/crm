@@ -1,11 +1,12 @@
 # Migración de la réplica de analytics
 
 Documentación del **origen**, **cómo se pobló** y **cómo reconstruir** la base
-`analytics` (`db-campaigns/`, contenedor `analytics_postgres`, puerto 5436) que
-alimenta la segmentación de campañas del panel `Interface web analytics`.
+`analytics` (carpeta `db/`, contenedor `analytics_postgres`, puerto 5436) que
+alimenta la segmentación de campañas del panel (`interface web/`).
 
 > Esta BD es una **réplica de solo lectura del legado** y **no tiene nada que ver
-> con la BD transaccional del ecommerce** (esa vive en `db/docker/`, puerto 5432).
+> con la BD transaccional del ecommerce** (esa vive en el repo `ecommerce`, en su
+> propio `db/docker/`, puerto 5432).
 
 ## 1. Origen: Publidata (Advantage Database Server)
 
@@ -26,10 +27,10 @@ por eso toda la extracción pasa por una máquina Windows con VISADS_25.
 graph TD
     A["db/ADDT (Publidata · ADS)<br/>.adt/.add del POS VISADS_25"] --> B["db/adt-reader/upload-addt.py<br/>sube los .adt por SMB a Windows"]
     B --> C["db/adt-reader/export-publidata.ps1<br/>ODBC Advantage en Windows → CSV"]
-    C --> D["Postgres analytics<br/>db-campaigns · puerto 5436<br/>schemas pos + analytics"]
+    C --> D["Postgres analytics<br/>db/ (antes db-campaigns) · :5436<br/>schemas pos + analytics"]
     D --> E["clustering-api (Astaroth :8010)<br/>lee analytics.vw_rfm_clientes"]
     E --> F["backend NestJS /admin/campaigns/*"]
-    F --> G["Panel Interface web analytics"]
+    F --> G["Panel (interface web)"]
 ```
 
 Herramientas que existen en el repo:
@@ -42,10 +43,16 @@ Herramientas que existen en el repo:
 | `test_db/` | Pruebas de conexión ADS (`pyodbc`, probe ACE32) al servidor `89.117.149.145:2000`. |
 | `db/ads/` | Intento de correr el servidor ADS en Docker (**pendiente del instalador**, descontinuado). |
 
+> ⚠ Esas herramientas (`db/adt-reader/`, `test_db/`, `db/ads/`, `scripts-agent/`)
+> viven en el repo **`ecommerce`**, no en este. Aquí solo se versiona la
+> **réplica ya cargada** (`db/schema.sql` + los dumps de `db/backups/`). Se
+> documentan porque describen el origen de los datos.
+
 ### ⚠ Lo que NO existe (verificado en todo el historial de git)
 
-- **No hay importador CSV → Postgres** para esta réplica. Los commits de
-  `db-campaigns/` solo contienen `docker-compose.yml` y `README.md`; nunca hubo un script.
+- **No hay importador CSV → Postgres** para esta réplica. Los commits de la
+  carpeta (entonces `db-campaigns/`) solo contenían `docker-compose.yml` y
+  `README.md`; nunca hubo un script.
 - La carga inicial se hizo **a mano** (Windows + ADS → CSV → Postgres).
 
 ### Parser `.adt` sin motor ADS (vía alternativa, Linux)
@@ -114,22 +121,22 @@ FROM base;
 
 ## 4. Backup
 
-Los dumps viven en **`db-campaigns/backups/`**. Como el volcado pesa **~346 MB**,
-va **troceado en 8 partes de 45 MB** (para GitHub): se versionan las **partes**
+Los dumps viven en **`db/backups/`**. Como el volcado pesa **~346 MB**, va
+**troceado en 8 partes de 45 MB** (para GitHub): se versionan las **partes**
 (`*.backup.part-NNN`) y el **sha256** del volcado completo; el `.backup` completo
 **no** se versiona (`.gitignore`).
 
 | Archivo | Tamaño |
 |---|---|
-| `analytics_2026-09-29.backup` (local, git-ignored) | 362.798.616 B (~346 MB) |
-| `analytics_2026-09-29.backup.part-000` … `-007` | 45 MB × 7 + 31 MB |
-| `analytics_2026-09-29.backup.sha256` | `7adb0dff…3331` |
+| `analytics_2026-10-02.backup` (local, git-ignored) | 362.798.616 B (~346 MB) |
+| `analytics_2026-10-02.backup.part-000` … `-007` | 45 MB × 7 + 31 MB |
+| `analytics_2026-10-02.backup.sha256` | `27e984c9…ad194` |
 
-Restaurar: `bash db-campaigns/restore.sh` o **`node dev.js --migration-campaigns`**
-(ambos reensamblan las partes si hace falta, verifican `sha256` y conteos).
-Inventario y comandos: `backups/README.md`.
+Restaurar: `bash db/restore.sh` o **`node dev.js --db --restore`** (ambos
+reensamblan las partes si hace falta, verifican `sha256` y conteos). Inventario y
+comandos: [backups-analytics.md](./backups-analytics.md).
 
-DDL versionado: **`db-campaigns/schema.sql`** (`pg_dump --schema-only`, 40 KB) +
+DDL versionado: **`db/schema.sql`** (`pg_dump --schema-only`, ~1.4k líneas) +
 estructura del legado por si hay que recrear la base vacía.
 
 ## 5. Timeline (historial git de `jctrejosi/ecommerce`)
@@ -148,14 +155,14 @@ estructura del legado por si hay que recrear la base vacía.
 `pos.sync_control` está **vacío** → no hay sync incremental que reanudar: la
 recarga es **completa**.
 
-**Fase 1 — Esquema**: `psql -f db-campaigns/schema.sql` crea `pos.*` (con
-particiones e índices) y `analytics.*` (incluida la vista RFM). *(Ya versionado.)*
+**Fase 1 — Esquema**: `psql -f db/schema.sql` crea `pos.*` (con particiones e
+índices) y `analytics.*` (incluida la vista RFM). *(Ya versionado.)*
 
 **Fase 2 — Datos crudos**, una de dos vías:
 
 - **Vía A — exacta (requiere Windows con ADS)**: `db/adt-reader/export-publidata.ps1`
-  → CSVs (`VENTAS`, `POSCLI`, `FADCLI`, …) y un importador **a escribir**
-  `db-campaigns/import-csv.mjs` (subir CSV al contenedor + `COPY FROM` por lotes,
+  (repo `ecommerce`) → CSVs (`VENTAS`, `POSCLI`, `FADCLI`, …) y un importador **a
+  escribir** `db/import-csv.mjs` (subir CSV al contenedor + `COPY FROM` por lotes,
   `clientes` antes de `venta_lineas`).
 - **Vía B — solo Linux (sin ADS)**: extender el lector `.adt` binario de
   `scripts-agent/import-tidsal.mjs` para leer `db/ADDT/{VENTAS,POSCLI,FADCLI}.adt`
@@ -168,7 +175,7 @@ a ese servicio/repo).
 ## 7. Pendientes / TODO
 
 - [ ] **Automatizar el backup** (cron + copia fuera de la máquina). Hoy el único
-      respaldo versionado son las partes en `db-campaigns/backups/` (commit único).
+      respaldo versionado son las partes en `db/backups/` (commit único).
 - [ ] Escribir el importador **CSV → Postgres** (Vía A) para que la recarga sea
       reproducible sin intervención manual.
 - [ ] Conseguir/acceder al repo de **`clustering-api` (Astaroth)** para poder

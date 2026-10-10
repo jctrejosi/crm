@@ -291,7 +291,7 @@ function restoreAnalytics({ force = false } = {}) {
 
   const bk = pickBackup();
   if (!bk) {
-    console.warn(`${tag} ⚠️  no encontré backups en db/backups (ver db/backups/README.md)`);
+    console.warn(`${tag} ⚠️  no encontré backups en db/backups (ver docs/backups-analytics.md)`);
     return false;
   }
 

@@ -13,6 +13,7 @@ necesita.
 | `backend/` | API NestJS propia del CRM (recortada del backend del ecommerce) | 3100 |
 | `ia-service/` | FastAPI + DeepSeek (contenido, nombre y explicación de campañas) | 8002 |
 | `db/` | Las **dos** bases Postgres del CRM (docker) | 5437 · 5436 |
+| `docs/` | Documentación del proyecto (estado actual, bases de datos, migración) | — |
 | `dev.js` | Lanzador del CRM (`node dev.js`) | — |
 
 ## Cómo levantarlo
@@ -31,6 +32,19 @@ levantar `db`, si el volumen de `analytics` está vacío se restaura desde
 
 URLs: web <http://localhost:8444> · backend <http://localhost:3100> (docs en
 `/api/docs`) · ia-service <http://localhost:8002/docs>. Logs en `logs/*.log`.
+
+## Documentación
+
+Toda la documentación de proyecto vive en **[`docs/`](./docs/README.md)**:
+
+- **[Estado actual](./docs/estado-actual.md)** — arquitectura, servicios, puertos,
+  componentes, configuración y deuda técnica conocida. **Empieza por aquí.**
+- [Bases de datos](./docs/bases-de-datos.md) — las dos Postgres (`crm` :5437 y
+  `analytics` :5436).
+- [Migración de analytics](./docs/migracion-analytics.md) — origen del legado
+  Advantage y plan de reconstrucción.
+- [Backups de analytics](./docs/backups-analytics.md) — dumps troceados y cómo
+  restaurarlos.
 
 ## Bases de datos (propias del CRM)
 
