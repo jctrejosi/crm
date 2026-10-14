@@ -1,0 +1,22 @@
+{
+	# Servimos por HTTP simple dentro del contenedor; TLS lo pone el borde (si aplica).
+	auto_https off
+	admin off
+}
+
+:80 {
+	encode zstd gzip
+
+	# Backend NestJS (interno). handle_path quita el prefijo /api antes de proxyar,
+	# de modo que /api/auth/login → backend /auth/login.
+	handle_path /api/* {
+		reverse_proxy 127.0.0.1:3100
+	}
+
+	# SPA React con fallback a index.html para el enrutado del cliente.
+	handle {
+		root * /srv/www
+		try_files {path} /index.html
+		file_server
+	}
+}

@@ -1,0 +1,50 @@
+name: crm
+
+# Despliegue del CRM en UN ÚNICO contenedor global. Se expone SOLO la web.
+#
+# Dentro del contenedor viven: Postgres (crm + analytics), el backend NestJS, el
+# ia-service y Caddy (proxy reverso + estáticos). Nada más se publica al host.
+#
+# Uso:
+#   node dev.js --stop                                            # libera BDs/puertos de desarrollo
+#   docker compose -f docker-compose.deploy.yml up -d --build     # → http://localhost:8080
+#
+# Variables (con default): WEB_PORT, JWT_SECRET, PUBLIC_ORIGIN,
+#   IA_SERVICE_DEEPSEEK_API_KEY y RESTORE_ANALYTICS (=1 para cargar la réplica
+#   desde ./db/backups en el primer arranque).
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile
+    image: crm-app:latest
+    restart: unless-stopped
+    # Único puerto publicado: la web.
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    environment:
+      JWT_SECRET: "${JWT_SECRET:-cambia-este-secreto}"
+      CORS_ORIGIN: "${PUBLIC_ORIGIN:-http://localhost:8080}"
+      IA_SERVICE_DEEPSEEK_API_KEY: "${IA_SERVICE_DEEPSEEK_API_KEY:-}"
+      # Poner a 1 para restaurar analytics desde db/backups en el primer arranque.
+      RESTORE_ANALYTICS: "${RESTORE_ANALYTICS:-0}"
+      # Usuario admin opcional: se crea solo si defines email + password.
+      SEED_ADMIN_EMAIL: "${SEED_ADMIN_EMAIL:-}"
+      SEED_ADMIN_PASSWORD: "${SEED_ADMIN_PASSWORD:-}"
+      SEED_ADMIN_USERNAME: "${SEED_ADMIN_USERNAME:-admin}"
+    volumes:
+      # Datos de Postgres (las dos bases) — persisten entre reinicios.
+      - pgdata:/var/lib/postgresql/data
+      # Volcados de analytics (solo lectura); se usan si RESTORE_ANALYTICS=1.
+      - ./db/backups:/app/db/backups:ro
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1/api/api-status')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+volumes:
+  pgdata:
+    name: crm_pgdata

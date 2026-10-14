@@ -1,0 +1,25 @@
+# Contexto de build del deploy (docker-compose.deploy.yml).
+# Evita arrastrar dependencias locales, backups y secretos a la imagen.
+
+# Dependencias y artefactos (se regeneran dentro de la imagen)
+**/node_modules
+**/.venv
+**/dist
+**/build
+**/__pycache__
+**/*.pyc
+
+# Volcados pesados y logs
+db/backups
+logs
+**/*.log
+
+# Secretos locales (las variables se inyectan en runtime)
+**/.env
+**/.env.*
+
+# VCS / editor
+.git
+.gitignore
+**/.vscode
+**/.idea
