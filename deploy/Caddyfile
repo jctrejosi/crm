@@ -1,0 +1,50 @@
+{
+	admin off
+	http_port 8080
+	https_port 8443
+	email admin@jcti.xyz
+	auto_https off
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
+http://crm-api.mercaldas.jcti.xyz {
+	header {
+	X-Content-Type-Options "nosniff"
+	X-Frame-Options "SAMEORIGIN"
+	Referrer-Policy "strict-origin-when-cross-origin"
+	Cross-Origin-Opener-Policy "same-origin-allow-popups"
+	Permissions-Policy "camera=(self), microphone=(self), geolocation=(self), payment=()"
+	-Server
+	Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data: https:; connect-src 'self' https: wss:; frame-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self' https:"
+	}
+	request_body {
+		max_size 50MB
+	}
+	encode zstd gzip
+	handle {
+		reverse_proxy 127.0.0.1:3100 {
+		header_up X-Forwarded-Proto https
+	}
+	}
+}
+
+http://crm.mercaldas.jcti.xyz {
+	header {
+	X-Content-Type-Options "nosniff"
+	X-Frame-Options "SAMEORIGIN"
+	Referrer-Policy "strict-origin-when-cross-origin"
+	Cross-Origin-Opener-Policy "same-origin-allow-popups"
+	Permissions-Policy "camera=(self), microphone=(self), geolocation=(self), payment=()"
+	-Server
+	Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data: https:; connect-src 'self' https: wss:; frame-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self' https:"
+	}
+	request_body {
+		max_size 50MB
+	}
+	encode zstd gzip
+	root * /srv/web
+	try_files {path} /index.html
+	file_server
+}

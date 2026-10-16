@@ -3,19 +3,33 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import { ValidationPipe } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import * as express from 'express';
 import compression from 'compression';
 import helmet from 'helmet';
 import { httpLoggerMiddleware } from './utils/logger';
 import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
+import {
+  createRateLimitMiddleware,
+  DEFAULT_RATE_LIMIT_RULES,
+  isRateLimitEnabled,
+} from './common/middleware/rate-limit.middleware';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import { CorsConfig, HelmetConfig } from './config';
 import { isLanOrigin } from './utils/origins';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const configService = app.get(ConfigService);
+
+  // Detrás de un proxy (Caddy) hay que confiar en X-Forwarded-For para que
+  // `req.ip` sea la IP real del cliente; sin esto, el rate limit sería un único
+  // cubo compartido por todos. En el contenedor se define TRUST_PROXY=loopback.
+  const trustProxy = process.env.TRUST_PROXY;
+  if (trustProxy && trustProxy !== 'false' && trustProxy !== '0') {
+    app.set('trust proxy', trustProxy === 'true' ? true : trustProxy);
+  }
 
   // ✅ 1. CORS PRIMERO (antes que cualquier otro middleware)
   const corsOptions = configService.get<CorsConfig>('cors');
@@ -88,6 +102,16 @@ async function bootstrap() {
   app.use(compression());
   app.use(httpLoggerMiddleware());
   app.use(cookieParser());
+
+  // ✅ Rate limit (endpoints de autenticación). Opt-in por env para no afectar
+  // entornos que no están detrás de proxy.
+  if (isRateLimitEnabled()) {
+    app.use(createRateLimitMiddleware(DEFAULT_RATE_LIMIT_RULES));
+    console.log(
+      '🛡️  Rate limit activo en:',
+      DEFAULT_RATE_LIMIT_RULES.map((r) => r.name).join(', '),
+    );
+  }
 
   // ✅ 5. Swagger (solo en desarrollo)
   if (configService.get('app.nodeEnv') !== 'production') {

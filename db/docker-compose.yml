@@ -22,8 +22,12 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: analytics
+    # Bind SOLO a loopback: la BD no debe quedar expuesta a la red/internet,
+    # incluso aunque se levante este compose en un servidor público (VPS).
+    # El contenedor de la app en producción la alcanza por la red interna
+    # (crm-postgres:5432); este puerto es para herramientas locales (DBeaver, psql).
     ports:
-      - "5436:5432"
+      - "127.0.0.1:5436:5432"
     volumes:
       - analytics_postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -44,8 +48,9 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: crm
+    # Bind SOLO a loopback (ver nota en analytics-postgres).
     ports:
-      - "5437:5432"
+      - "127.0.0.1:5437:5432"
     volumes:
       - crm_postgres_data:/var/lib/postgresql/data
       - ./init-operational.sql:/docker-entrypoint-initdb.d/01_init.sql:ro

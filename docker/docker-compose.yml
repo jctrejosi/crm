@@ -1,0 +1,195 @@
+# Contenedor de APLICACIÓN del CRM (backend + ia-service + panel web + Caddy)
+# y sus dos bases Postgres en la red interna.
+#
+# Solo se publican 80/443 (los del contenedor de aplicación): backend (3100) e
+# ia-service (8002) escuchan en 127.0.0.1 dentro del contenedor y las bases
+# (crm :5437, analytics :5436) quedan en la red interna — sus puertos se
+# publican SOLO en 127.0.0.1 del host para herramientas/ML locales, nunca a
+# internet. El proceso NO corre como root: Caddy escucha en :8080/:8443 y el
+# compose los publica como 80/443.
+#
+# Uso:
+#   cp docker/.env.example docker/.env   # edita dominios, TLS y secretos
+#   docker compose -f docker/docker-compose.yml build \
+#     --build-arg VITE_API_URL=https://crm-api.tudominio.com
+#   docker compose -f docker/docker-compose.yml up -d
+#
+# Guía completa (Windows Server, firewall, DNS y edge compartido): docs/RUNBOOK-EXPOSICION.md
+name: mercaldas-crm
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        # Debe coincidir con https://${HOST_API}. Se hornea en el panel.
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:3100}
+        # URL pública del servicio de SMS de prueba (se llama desde el
+        # navegador, así que debe ser HTTPS y permitir el origen del panel).
+        VITE_SMS_API_URL: ${VITE_SMS_API_URL:-}
+    image: crm/app:latest
+    # Nombre fijo: permite que un "edge compartido" (otro Caddy que publique
+    # 80/443 cuando ese puerto ya está ocupado) lo alcance por nombre en la red
+    # `shared_edge`. Ver docs/RUNBOOK-EXPOSICION.md §8.
+    container_name: mercaldas_crm_app
+    env_file:
+      - .env
+    environment:
+      BACKEND_PORT: "3100"
+      IA_PORT: "8002"
+      # Puertos internos de Caddy (no root); el host publica 80/443.
+      HTTP_PORT: "8080"
+      HTTPS_PORT: "8443"
+      # Detrás de Caddy: confiar en X-Forwarded-For para el rate limit por IP.
+      # `uniquelocal` cubre el salto extra del edge compartido (red Docker
+      # privada → el backend resuelve la IP real del cliente).
+      TRUST_PROXY: ${TRUST_PROXY:-loopback,uniquelocal}
+      RATE_LIMIT_ENABLED: "true"
+      # El backend llama a los modelos por loopback dentro del contenedor.
+      IA_SERVICE_URL: "http://127.0.0.1:8002"
+      # Postgres del CRM por la red interna (nombre de servicio). Si defines
+      # DATABASE_URL en docker/.env, ese valor manda.
+      DATABASE_URL: ${DATABASE_URL:-postgres://postgres:postgres@crm-postgres:5432/crm}
+      # Con NODE_ENV=production el backend activaría SSL si DB_SSL no es
+      # explícitamente false; la BD del CRM es local y sin TLS.
+      DB_SSL: ${DB_SSL:-false}
+      # Certificados/estado de Caddy → volúmenes (no se re-emiten en cada up).
+      XDG_DATA_HOME: /data
+      XDG_CONFIG_HOME: /config
+      CADDYFILE_OUT: /config/Caddyfile.generated
+    # ── Puertos publicados en el host ───────────────────────────────────
+    # Por defecto SOLO en loopback y en puertos propios (30280/30281), para no
+    # chocar con 80/443 ni con servicios «genéricos» (8080, 8443, 3100…).
+    # Pensados para el despliegue con EDGE COMPARTIDO (ecommerce/docker/edge/),
+    # que es el único que publica 80/443 y termina TLS.
+    # Modo directo (este contenedor es el único en el servidor): PUBLIC_HTTP_PORT=80
+    # PUBLIC_HTTPS_PORT=443 y TLS=true (lo sincroniza prod.js desde prod.config.json).
+    ports:
+      - "${PUBLIC_HTTP_PORT:-127.0.0.1:30280}:8080"
+      - "${PUBLIC_HTTPS_PORT:-127.0.0.1:30281}:8443"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+      # Logs de winston del backend: persisten y no crecen fuera de control.
+      - app_logs:/app/backend/logs
+    depends_on:
+      crm-postgres:
+        condition: service_healthy
+      analytics-postgres:
+        condition: service_healthy
+    networks:
+      - edge      # salida a internet (DeepSeek, ACME…) y puertos publicados
+      - internal  # red interna (BD) — no publicada
+      - shared_edge  # solo se usa si un edge compartido publica 80/443 por ti
+    # Los modelos ML corren en el contenedor `mercaldas_astaroth_app` (red
+    # `shared_edge`): las CLUSTERING/XGBOOST/UPLIFT_API_URL del .env apuntan
+    # allí. `host.docker.internal` queda como alternativa si algún día corren
+    # NATIVOS en el host (en Linux/WSL2 lo habilita este mapeo).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # Endurecimiento: sin capacidades extra y sin escalada de privilegios. Al
+    # correr como usuario sin privilegios en puertos altos no hace falta
+    # NET_BIND_SERVICE.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3100/api-status"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    # Evita que los logs llenen el disco (el backend registra cada petición).
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    restart: unless-stopped
+
+  # ── BD OPERATIVA del CRM (campañas, catálogo, pedidos, clientes, usuarios) ──
+  crm-postgres:
+    image: postgis/postgis:16-3.4
+    # Mismo nombre que en dev: los scripts de db/ (migrate-from-ecommerce.sh,
+    # restore.sh) y las herramientas locales funcionan sin cambios. No levantes
+    # dev y prod a la vez (mismo nombre, puertos y volúmenes).
+    container_name: crm_postgres
+    environment:
+      POSTGRES_USER: ${CRM_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${CRM_DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${CRM_DB_NAME:-crm}
+    # Solo loopback: accesible por herramientas del host (psql, DBeaver) y por
+    # los servicios de ML que corran nativos en el VPS. Nunca desde internet.
+    ports:
+      - "127.0.0.1:${CRM_DB_PORT:-5437}:5432"
+    volumes:
+      - crm_postgres_data:/var/lib/postgresql/data
+      - ../db/init-operational.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${CRM_DB_USER:-postgres} -d ${CRM_DB_NAME:-crm}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    networks:
+      - internal
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped
+
+  # ── RÉPLICA analytics (la leen los modelos de ML; el backend solo la usa si
+  #    algún día se separa el esquema `analytics` a su propia base) ──
+  analytics-postgres:
+    image: postgres:16-alpine
+    # Mismo nombre que en dev (ver nota en crm-postgres): restore.sh apunta aquí.
+    container_name: analytics_postgres
+    environment:
+      POSTGRES_USER: ${ANALYTICS_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${ANALYTICS_DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${ANALYTICS_DB_NAME:-analytics}
+    ports:
+      - "127.0.0.1:${ANALYTICS_DB_PORT:-5436}:5432"
+    volumes:
+      - analytics_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ANALYTICS_DB_USER:-postgres} -d ${ANALYTICS_DB_NAME:-analytics}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    networks:
+      - internal
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped
+
+networks:
+  edge:
+    name: crm_edge
+  internal:
+    name: crm_internal
+    internal: true
+  # Red que comparte con el "edge" cuando 80/443 ya están ocupados por otro
+  # proyecto (ver runbook §5bis). Sin uso si este contenedor publica 80/443.
+  shared_edge:
+    name: shared_edge
+
+volumes:
+  caddy_data:
+    name: crm_caddy_data
+  caddy_config:
+    name: crm_caddy_config
+  app_logs:
+    name: crm_app_logs
+  # Mismos nombres que crm/db/docker-compose.yml: los datos viven en un único
+  # volumen aunque la BD se levante con uno u otro compose (no se duplican).
+  crm_postgres_data:
+    name: crm_postgres_data
+  analytics_postgres_data:
+    name: analytics_postgres_data

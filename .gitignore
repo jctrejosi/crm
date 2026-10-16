@@ -1,2 +1,6 @@
 # Logs del lanzador (dev.js): crm/logs/*.log y .pids.json
 logs/
+
+# Secretos del despliegue en contenedor (docker/): dominios, claves y
+# credenciales reales. El repo solo versiona docker/.env.example.
+docker/.env

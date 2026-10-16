@@ -14,7 +14,9 @@ necesita.
 | `ia-service/` | FastAPI + DeepSeek (contenido, nombre y explicación de campañas) | 8002 |
 | `db/` | Las **dos** bases Postgres del CRM (docker) | 5437 · 5436 |
 | `docs/` | Documentación del proyecto (estado actual, bases de datos, migración) | — |
+| `docker/` | Despliegue en **contenedor de aplicación** (backend + ia + panel + Caddy + BDs) | 30280 · 30281 (loopback) |
 | `dev.js` | Lanzador del CRM (`node dev.js`) | — |
+| `prod.js` + `prod.config.json` | Lanzador de **producción** (dominios, DNS, build y `up`) | — |
 
 ## Cómo levantarlo
 
@@ -33,6 +35,27 @@ levantar `db`, si el volumen de `analytics` está vacío se restaura desde
 URLs: web <http://localhost:8444> · backend <http://localhost:3100> (docs en
 `/api/docs`) · ia-service <http://localhost:8002/docs>. Logs en `logs/*.log`.
 
+## Producción (VPS, con dominios y TLS)
+
+```bash
+node prod.js --dns          # qué crear en GoDaddy + firewall (no toca nada)
+node prod.js                # sincroniza docker/.env, construye y levanta
+cd ../ecommerce/docker/edge && docker compose up -d   # el edge publica 80/443 y hace TLS
+node prod.js --status       # contenedores y puertos publicados
+node prod.js --logs         # logs del contenedor de aplicación
+node prod.js --stop         # detiene (los datos quedan)
+```
+
+Los dominios y la IP se configuran en **`prod.config.json`** (`mode: "edge"` =
+los 80/443 los publica el edge compartido; `"direct"` = este contenedor es el
+único del servidor); los secretos (JWT, contraseña del panel, DeepSeek, BD) en
+**`docker/.env`** (el contenedor es fail-closed: sin `JWT_SECRET` ni contraseña
+del panel no arranca). El CRM escucha en puertos propios (`30280/30281`) solo en
+loopback para no chocar con nada más.
+
+📖 Pasos completos: [`docs/RUNBOOK-EXPOSICION.md`](./docs/RUNBOOK-EXPOSICION.md)
+🔐 Modelo de seguridad: [`docs/SECURITY.md`](./docs/SECURITY.md)
+
 ## Documentación
 
 Toda la documentación de proyecto vive en **[`docs/`](./docs/README.md)**:
@@ -45,6 +68,10 @@ Toda la documentación de proyecto vive en **[`docs/`](./docs/README.md)**:
   Advantage y plan de reconstrucción.
 - [Backups de analytics](./docs/backups-analytics.md) — dumps troceados y cómo
   restaurarlos.
+- [Runbook de exposición](./docs/RUNBOOK-EXPOSICION.md) — despliegue en el VPS:
+  DNS en GoDaddy, firewall, `prod.js`, verificación y edge compartido.
+- [Seguridad](./docs/SECURITY.md) — modelo de seguridad del contenedor y
+  riesgos residuales.
 
 ## Bases de datos (propias del CRM)
 

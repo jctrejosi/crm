@@ -1,0 +1,28 @@
+# Contexto de build = raíz del repo CRM.
+# Lo que NO debe entrar en la imagen: dependencias locales, artefactos,
+# entornos/secretos, logs y backups.
+
+# Node / build
+**/node_modules
+**/dist
+
+# Python
+**/.venv
+**/__pycache__
+*.pyc
+
+# Entornos y secretos (los valores reales viajan por variables de entorno;
+# el build de los fronts recibe VITE_* como --build-arg)
+.env
+.env.*
+**/.env
+**/.env.*
+
+# Logs y datos locales
+logs/
+**/logs/
+db/backups/
+
+# Git
+.git
+.gitignore

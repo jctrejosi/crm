@@ -1,0 +1,19 @@
+{
+  "mode": "edge",
+  "baseDomain": "mercaldas.jcti.xyz",
+  "publicIp": "170.254.229.68",
+  "dnsZone": "jcti.xyz",
+  "acmeEmail": "admin@jcti.xyz",
+  "tls": true,
+  "hosts": {
+    "web": "crm.mercaldas.jcti.xyz",
+    "api": "crm-api.mercaldas.jcti.xyz"
+  },
+  "smsApiUrl": "",
+  "publicHttpPort": 80,
+  "publicHttpsPort": 443,
+  "edgePorts": {
+    "http": "127.0.0.1:30280",
+    "https": "127.0.0.1:30281"
+  }
+}

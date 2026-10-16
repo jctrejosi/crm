@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from . import config, deepseek
+from .rate_limit import rate_limit_middleware
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 
@@ -20,6 +21,10 @@ app = FastAPI(
     description="Recomendación de contenido de campañas con DeepSeek function calling.",
     version="0.1.0",
 )
+
+# Limitador de tasa propio (ver app/rate_limit.py). Se registra ANTES que CORS
+# para que CORS quede por fuera y las respuestas 429 lleven cabeceras CORS.
+app.middleware("http")(rate_limit_middleware)
 
 app.add_middleware(
     CORSMiddleware,
