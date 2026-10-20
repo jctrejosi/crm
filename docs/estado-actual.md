@@ -233,11 +233,11 @@ El CRM ya corre contenedorizado en el VPS compartido con el ecommerce.
 
 | Host | Uso | Estado |
 |---|---|---|
-| `crm.mercaldas.jcti.xyz` | panel (Basic Auth + JWT) | A → `170.254.229.68` ya creado |
-| `crm-api.mercaldas.jcti.xyz` | API NestJS | **falta** el registro A en GoDaddy |
+| `crm.mercaldas.jcti.xyz` | panel (Basic Auth + JWT) y API en `/api` | A → `170.254.229.68`; certificado emitido |
 
-Sin el registro del API el panel carga pero sus peticiones fallan. El DNS del
-panel ya resuelve; el certificado de ese host puede emitirse ya.
+Solo hay **un nombre público**: el API se sirve en
+`https://crm.mercaldas.jcti.xyz/api` (Caddy quita el prefijo y proxya al backend
+en loopback). No se necesita `crm-api.*`.
 
 **Contenedores**
 
@@ -249,11 +249,10 @@ panel ya resuelve; el certificado de ese host puede emitirse ya.
 | `edge_caddy` (del ecommerce) | `0.0.0.0:80` y `:443` | TLS y proxy a `mercaldas_crm_app:8080` |
 
 El bloque del CRM está activo en
-`../ecommerce/docker/edge/Caddyfile` (`crm.mercaldas.jcti.xyz,
-crm-api.mercaldas.jcti.xyz`) y el contenedor comparte la red `shared_edge` con
-`edge_caddy`. El servicio de Compose se llama `crm-app` (contenedor
-`mercaldas_crm_app`) para no colisionar con el alias `app` del ecommerce en esa
-red.
+`../ecommerce/docker/edge/Caddyfile` (solo `crm.mercaldas.jcti.xyz`) y el
+contenedor comparte la red `shared_edge` con `edge_caddy`. El servicio de
+Compose se llama `crm-app` (contenedor `mercaldas_crm_app`) para no colisionar
+con el alias `app` del ecommerce en esa red.
 
 **Datos cargados**
 
@@ -268,7 +267,7 @@ red.
 - `curl` interno contra el Caddy del contenedor: panel `401` sin credenciales y
   `200` con Basic Auth; `GET /api-status` → `{"status":"ok"}` con la BD
   conectada.
-- Bundle del panel apunta a `https://crm-api.mercaldas.jcti.xyz`.
+- Bundle del panel apunta a `https://crm.mercaldas.jcti.xyz/api`.
 - Puertos internos (3100, 8002, 8010–8012, 5436, 5437) **no** publicados.
 
 > Runbook completo: [RUNBOOK-EXPOSICION.md](./RUNBOOK-EXPOSICION.md).

@@ -31,7 +31,7 @@ cp docker/.env.example docker/.env    # dominios, contraseña del panel, secreto
 chmod 600 docker/.env
 
 docker compose -f docker/docker-compose.yml build \
-  --build-arg VITE_API_URL=https://crm-api.tudominio.com
+  --build-arg VITE_API_URL=https://crm.tudominio.com/api
 
 docker compose -f docker/docker-compose.yml up -d
 docker compose -f docker/docker-compose.yml logs -f crm-app

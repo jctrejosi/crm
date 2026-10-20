@@ -17,7 +17,7 @@ graph TD
     E -->| "crm.mercaldas.jcti.xyz" | C["Caddy del CRM (contenedor)<br/>127.0.0.1:30280"]
     E -->| "mercaldas.jcti.xyz, api…" | EC["Contenedor ecommerce<br/>127.0.0.1:30180"]
     C -->| "Host: crm…" | W["Panel /srv/web"]
-    C -->| "Host: crm-api…" | B["Backend NestJS :3100 (loopback)"]
+    C -->| "Path: /api/*" | B["Backend NestJS :3100 (loopback)"]
     B --> S["ia-service :8002 (loopback)"]
     B --> DB[("Postgres crm<br/>red interna")]
     B --> ML["Modelos ML (clustering/xgboost/uplift)<br/>loopback :8010-8012"]
@@ -77,7 +77,9 @@ que **el DNS va primero**: si no resuelve, no habrá HTTPS.
 | Tipo | Nombre (en la zona `jcti.xyz`) | Valor | TTL |
 |---|---|---|---|
 | A | `crm.mercaldas` | `170.254.229.68` | 600 |
-| A | `crm-api.mercaldas` | `170.254.229.68` | 600 |
+
+Con `apiBasePath: "/api"` **no hace falta** un segundo nombre: el API se sirve
+bajo el mismo host del panel (`https://crm.mercaldas.jcti.xyz/api`).
 
 En GoDaddy: **Mi dominio → DNS → Administrar DNS → Agregar registro**
 (tipo `A`, nombre `crm.mercaldas` — GoDaddy añade `.jcti.xyz` solo; el nombre
@@ -89,7 +91,6 @@ Comprueba la propagación (desde tu PC, no desde el VPS):
 
 ```powershell
 nslookup crm.mercaldas.jcti.xyz      # debe devolver 170.254.229.68
-nslookup crm-api.mercaldas.jcti.xyz  # idem
 ```
 
 > `node prod.js` vuelve a verificar esto al arrancar y avisa si aún no apunta.
@@ -148,7 +149,8 @@ networkingMode=mirrored
   "dnsZone": "jcti.xyz",
   "acmeEmail": "admin@jcti.xyz",
   "tls": true,
-  "hosts": { "web": "crm.mercaldas.jcti.xyz", "api": "crm-api.mercaldas.jcti.xyz" },
+  "hosts": { "web": "crm.mercaldas.jcti.xyz" },
+  "apiBasePath": "/api",
   "smsApiUrl": "",
   "publicHttpPort": 80,
   "publicHttpsPort": 443
@@ -156,8 +158,13 @@ networkingMode=mirrored
 ```
 
    Cambiar un dominio aquí **no requiere rebuild** (el Caddyfile se genera en el
-   arranque del contenedor). Cambiar `hosts.api` **sí** exige rebuild (la URL va
-   horneada en el panel).
+   arranque del contenedor). Cambiar la URL del API (`hosts.api` o
+   `apiBasePath`) **sí** exige rebuild (va horneada en el panel).
+
+   `apiBasePath` (p. ej. `"/api"`) sirve el API **bajo el mismo host del panel**
+   y elimina la necesidad de `hosts.api` y de un segundo registro DNS. Si está
+   definido, `hosts.api` se ignora. El Caddy interno enruta `/api/*` al backend
+   quitando el prefijo.
 
    `mode` decide quién publica 80/443 y quién hace TLS:
    - `"edge"` (lo que trae el archivo): los publica el **edge compartido** y este
@@ -195,7 +202,7 @@ chmod 600 docker/.env
 node prod.js                 # sincroniza docker/.env, construye y levanta
 # o a mano:
 docker compose -f docker/docker-compose.yml build \
-  --build-arg VITE_API_URL=https://crm-api.mercaldas.jcti.xyz
+  --build-arg VITE_API_URL=https://crm.mercaldas.jcti.xyz/api
 docker compose -f docker/docker-compose.yml up -d
 
 # Y después el EDGE compartido (publica 80/443 y emite los certificados):
@@ -230,11 +237,11 @@ curl -sS -m 3 http://170.254.229.68:5437/ || echo "OK: 5437 cerrado"
 
 # 3. Panel y API (TLS)
 curl -I https://crm.mercaldas.jcti.xyz/       # 401 (Basic Auth del panel)
-curl -I https://crm-api.mercaldas.jcti.xyz/api-status
+curl -I https://crm.mercaldas.jcti.xyz/api/api-status
 
 # 4. Rate limit del login (debe aparecer algún 429)
 for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18; do curl -s -o /dev/null -w "%{http_code} " \
-  -X POST https://crm-api.mercaldas.jcti.xyz/auth/login \
+  -X POST https://crm.mercaldas.jcti.xyz/api/auth/login \
   -H 'Content-Type: application/json' -d '{"identifier":"x","password":"y"}'; done; echo
 ```
 

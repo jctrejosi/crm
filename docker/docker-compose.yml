@@ -11,7 +11,7 @@
 # Uso:
 #   cp docker/.env.example docker/.env   # edita dominios, TLS y secretos
 #   docker compose -f docker/docker-compose.yml build \
-#     --build-arg VITE_API_URL=https://crm-api.tudominio.com
+#     --build-arg VITE_API_URL=https://crm.tudominio.com/api
 #   docker compose -f docker/docker-compose.yml up -d
 #
 # Guía completa (Windows Server, firewall, DNS y edge compartido): docs/RUNBOOK-EXPOSICION.md

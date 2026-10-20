@@ -41,7 +41,7 @@ RUN npm run build \
 
 # ── 2. Panel web (Vite) ─────────────────────────────────────
 # Las VITE_* se hornean en el bundle: pásalas como --build-arg con las URLs
-# públicas (p. ej. https://crm-api.tudominio.com).
+# públicas (p. ej. https://crm.tudominio.com/api si el API va bajo /api).
 FROM node:20-bookworm-slim AS fronts
 ARG VITE_API_URL=http://localhost:3100
 ARG VITE_SMS_API_URL=
