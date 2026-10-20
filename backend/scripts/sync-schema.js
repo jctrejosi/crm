@@ -39,6 +39,9 @@ const COLUMNS = [
   // picking: revisión de pedidos en la cola (complementa a picked_qty)
   `ALTER TABLE orders
      ADD COLUMN IF NOT EXISTS reviewed_at timestamptz`,
+  // campañas: borrador del asistente paso a paso (productos, filtros…)
+  `ALTER TABLE campaigns
+     ADD COLUMN IF NOT EXISTS draft_state jsonb`,
   // campañas: origen del público objetivo ('auto' | 'manual' | 'mixed')
   `ALTER TABLE campaigns
      ADD COLUMN IF NOT EXISTS audience_mode varchar(10) NOT NULL DEFAULT 'auto'`,

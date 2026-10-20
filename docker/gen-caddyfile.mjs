@@ -57,7 +57,8 @@ const bodyLimit =
 // build de Vite SIN scripts inline (no hay next-themes ni OAuth con script
 // externo), así que `script-src 'self'` es suficiente y más estricto.
 // - style-src 'unsafe-inline': el editor de correos y los gráficos (recharts)
-//   usan atributos style en línea.
+//   usan atributos style en línea; fonts.googleapis.com sirve el @import de
+//   tipografías de src/index.css.
 // - img-src/connect-src https:: las imágenes y llamadas salen al API y al
 //   servicio de SMS externo (VITE_SMS_API_URL).
 // - frame-src 'self': la vista previa del correo usa un iframe `srcdoc`.
@@ -66,7 +67,7 @@ const bodyLimit =
 const DEFAULT_CSP = [
   "default-src 'self'",
   "script-src 'self'",
-  "style-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data: https:",
   "connect-src 'self' https: wss:",

@@ -1,5 +1,6 @@
 import { Controller, Get, HttpStatus, Res } from '@nestjs/common';
 import type { Response } from 'express';
+import { Public } from './common/decorators/public.decorator';
 import {
   ApiTags,
   ApiOperation,
@@ -28,6 +29,7 @@ export class AppController {
     };
   }
 
+  @Public()
   @Get('api-status')
   @ApiOperation({
     summary: 'API Status',

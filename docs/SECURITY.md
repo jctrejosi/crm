@@ -106,6 +106,10 @@ Notas:
   `secure` cuando `NODE_ENV=production`).
 - **Swagger desactivado** en producción (`NODE_ENV=production`): no expone el
   mapa de la API.
+- **Guard global**: `JwtAuthGuard` se aplica a **toda** la API; solo quedan
+  abiertas las rutas marcadas `@Public()` (`/auth/login`, `/auth/refresh`,
+  `/landing/general`, `/admin/settings/public-info`, `/catalog/*`, `/api-status`).
+  Todo `/admin/*` (campañas, dashboard, pedidos, catálogo) exige la cookie JWT.
 - **Basic Auth adicional en el panel** (`PROTECT_WEB=true`, por defecto):
   defensa en profundidad sobre el login JWT. Cubre el HTML/JS del panel; el API
   no lo pide (las llamadas van a `HOST_API` desde el navegador del usuario).

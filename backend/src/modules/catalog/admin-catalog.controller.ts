@@ -1,6 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { Public } from '../../common/decorators/public.decorator';
 import { CatalogService } from './catalog.service';
 import { CatalogProductsQueryDto } from './dto/catalog-products-query.dto';
 
@@ -11,14 +10,12 @@ export class AdminCatalogController {
 
   // ── Categories ──
 
-  @Public()
   @Get('categories')
   @ApiOperation({ summary: 'Obtener todas las categorías (admin)' })
   async getAllCategories() {
     return this.catalogService.getAllCategoriesAdmin();
   }
 
-  @Public()
   @Post('categories')
   @ApiOperation({ summary: 'Crear categoría' })
   async createCategory(
@@ -27,7 +24,6 @@ export class AdminCatalogController {
     return this.catalogService.createCategory(body);
   }
 
-  @Public()
   @Post('categories/:id')
   @ApiOperation({ summary: 'Actualizar categoría' })
   async updateCategory(
@@ -48,7 +44,6 @@ export class AdminCatalogController {
     return this.catalogService.updateCategory(Number(id), body);
   }
 
-  @Public()
   @Delete('categories/:id')
   @ApiOperation({ summary: 'Eliminar categoría (soft delete)' })
   async deleteCategory(@Param('id') id: string) {
@@ -58,14 +53,12 @@ export class AdminCatalogController {
 
   // ── Category Products ──
 
-  @Public()
   @Get('categories/:id/products')
   @ApiOperation({ summary: 'Obtener productos de una categoría' })
   async getCategoryProducts(@Param('id') id: string) {
     return this.catalogService.getCategoryProducts(Number(id));
   }
 
-  @Public()
   @Post('categories/:id/products')
   @ApiOperation({ summary: 'Asignar producto a categoría' })
   async addProductToCategory(
@@ -76,7 +69,6 @@ export class AdminCatalogController {
     return { success: true };
   }
 
-  @Public()
   @Delete('categories/:id/products/:productId')
   @ApiOperation({ summary: 'Quitar producto de categoría' })
   async removeProductFromCategory(
@@ -92,14 +84,12 @@ export class AdminCatalogController {
 
   // ── Product Types ──
 
-  @Public()
   @Get('product-types')
   @ApiOperation({ summary: 'Obtener todos los tipos de producto (admin)' })
   async getAllProductTypes() {
     return this.catalogService.getAllProductTypesAdmin();
   }
 
-  @Public()
   @Post('product-types')
   @ApiOperation({ summary: 'Crear tipo de producto' })
   async createProductType(
@@ -113,7 +103,6 @@ export class AdminCatalogController {
     return this.catalogService.createProductType(body);
   }
 
-  @Public()
   @Post('product-types/:id')
   @ApiOperation({ summary: 'Actualizar tipo de producto' })
   async updateProductType(
@@ -130,7 +119,6 @@ export class AdminCatalogController {
     return this.catalogService.updateProductType(Number(id), body);
   }
 
-  @Public()
   @Delete('product-types/:id')
   @ApiOperation({ summary: 'Eliminar tipo de producto' })
   async deleteProductType(@Param('id') id: string) {
@@ -140,14 +128,12 @@ export class AdminCatalogController {
 
   // ── Product Type Products ──
 
-  @Public()
   @Get('product-types/:id/products')
   @ApiOperation({ summary: 'Obtener productos de un tipo de producto' })
   async getProductTypeProducts(@Param('id') id: string) {
     return this.catalogService.getProductTypeProducts(Number(id));
   }
 
-  @Public()
   @Post('product-types/:id/products')
   @ApiOperation({ summary: 'Asignar producto a tipo de producto' })
   async addProductToType(
@@ -158,7 +144,6 @@ export class AdminCatalogController {
     return { success: true };
   }
 
-  @Public()
   @Delete('product-types/:id/products/:productId')
   @ApiOperation({ summary: 'Quitar producto de tipo de producto' })
   async removeProductFromType(
@@ -173,7 +158,6 @@ export class AdminCatalogController {
   }
 
   // ── Products ──
-  @Public()
   @Post('products/:productId/replace-category')
   @ApiOperation({ summary: 'Reemplazar categoría de un producto' })
   async replaceProductCategory(
@@ -189,7 +173,6 @@ export class AdminCatalogController {
 
   // ── Products ──
 
-  @Public()
   @Post('products')
   @ApiOperation({ summary: 'Buscar productos (admin, incluye sin categoría)' })
   async getProducts(@Body() query: CatalogProductsQueryDto) {
@@ -198,14 +181,12 @@ export class AdminCatalogController {
 
   // ── Brands ──
 
-  @Public()
   @Get('brands')
   @ApiOperation({ summary: 'Obtener todas las marcas (admin)' })
   async getAllBrands() {
     return this.catalogService.getAllBrandsAdmin();
   }
 
-  @Public()
   @Post('brands')
   @ApiOperation({ summary: 'Crear marca' })
   async createBrand(
@@ -224,7 +205,6 @@ export class AdminCatalogController {
     return this.catalogService.createBrand(body);
   }
 
-  @Public()
   @Post('brands/:id')
   @ApiOperation({ summary: 'Actualizar marca' })
   async updateBrand(
@@ -245,7 +225,6 @@ export class AdminCatalogController {
     return this.catalogService.updateBrand(Number(id), body);
   }
 
-  @Public()
   @Delete('brands/:id')
   @ApiOperation({ summary: 'Eliminar marca (soft delete)' })
   async deleteBrand(@Param('id') id: string) {
@@ -255,14 +234,12 @@ export class AdminCatalogController {
 
   // ── Brand Products ──
 
-  @Public()
   @Get('brands/:id/products')
   @ApiOperation({ summary: 'Obtener productos de una marca' })
   async getBrandProducts(@Param('id') id: string) {
     return this.catalogService.getBrandProducts(Number(id));
   }
 
-  @Public()
   @Post('brands/:id/products')
   @ApiOperation({ summary: 'Asignar producto a marca' })
   async addProductToBrand(
@@ -273,7 +250,6 @@ export class AdminCatalogController {
     return { success: true };
   }
 
-  @Public()
   @Delete('brands/:id/products/:productId')
   @ApiOperation({ summary: 'Quitar producto de marca' })
   async removeProductFromBrand(
@@ -286,7 +262,6 @@ export class AdminCatalogController {
 
   // ── Suppliers ──
 
-  @Public()
   @Get('suppliers')
   @ApiOperation({ summary: 'Obtener proveedores (admin, paginado)' })
   async getAllSuppliers(
@@ -301,7 +276,6 @@ export class AdminCatalogController {
     });
   }
 
-  @Public()
   @Post('suppliers')
   @ApiOperation({ summary: 'Crear proveedor' })
   async createSupplier(
@@ -325,7 +299,6 @@ export class AdminCatalogController {
     return this.catalogService.createSupplier(body);
   }
 
-  @Public()
   @Post('suppliers/:id')
   @ApiOperation({ summary: 'Actualizar proveedor' })
   async updateSupplier(
@@ -351,7 +324,6 @@ export class AdminCatalogController {
     return this.catalogService.updateSupplier(Number(id), body);
   }
 
-  @Public()
   @Delete('suppliers/:id')
   @ApiOperation({ summary: 'Eliminar proveedor (soft delete)' })
   async deleteSupplier(@Param('id') id: string) {
@@ -361,7 +333,6 @@ export class AdminCatalogController {
 
   // ── Supplier Products ──
 
-  @Public()
   @Get('suppliers/:id/products')
   @ApiOperation({ summary: 'Obtener productos de un proveedor' })
   async getSupplierProducts(@Param('id') id: string) {
@@ -370,14 +341,12 @@ export class AdminCatalogController {
 
   // ── Product Suppliers ──
 
-  @Public()
   @Get('products/:id/suppliers')
   @ApiOperation({ summary: 'Obtener proveedores de un producto' })
   async getProductSuppliers(@Param('id') id: string) {
     return this.catalogService.getProductSuppliers(Number(id));
   }
 
-  @Public()
   @Post('products/:id/suppliers')
   @ApiOperation({ summary: 'Asignar proveedor a producto' })
   async addSupplierToProduct(
@@ -390,7 +359,6 @@ export class AdminCatalogController {
     );
   }
 
-  @Public()
   @Delete('products/:id/suppliers/:supplierId')
   @ApiOperation({ summary: 'Quitar proveedor de producto' })
   async removeSupplierFromProduct(
