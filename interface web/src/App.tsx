@@ -21,9 +21,11 @@ import {
   Check,
   Sun,
   Moon,
+  Loader2,
 } from "lucide-react";
 import Dashboard from "./views/Dashboard";
 import Campaigns from "./views/Campaigns";
+import Login from "./components/Login";
 import { authService, type UserProfile } from "./services/auth.service";
 import { THEMES, MODES, useTheme } from "./theme";
 
@@ -390,10 +392,12 @@ function TopBar({
   current,
   onOpenCommand,
   user,
+  onLogout,
 }: {
   current: ViewId;
   onOpenCommand: () => void;
   user: UserProfile | null;
+  onLogout: () => void;
 }) {
   const [notifOpen, setNotifOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
@@ -547,7 +551,13 @@ function TopBar({
                 </button>
               ))}
               <div className="border-t border-gray-100 mt-1 pt-1">
-                <button className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
+                <button
+                  onClick={() => {
+                    setUserOpen(false);
+                    onLogout();
+                  }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                >
                   <LogOut size={14} />
                   Cerrar sesión
                 </button>
@@ -586,6 +596,7 @@ export default function App() {
   const [cmdOpen, setCmdOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [user, setUser] = useState<UserProfile | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [storeLogo, setStoreLogo] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState<string>("Mercaldas");
 
@@ -601,12 +612,18 @@ export default function App() {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  // Perfil autenticado (cookie). Si falla, se usa el nombre por defecto.
+  // Perfil autenticado (cookie httpOnly). Sin sesión se muestra el login.
   useEffect(() => {
     authService
       .getProfile()
       .then((profile) => setUser(profile))
-      .catch(() => {});
+      .catch(() => setUser(null))
+      .finally(() => setAuthChecked(true));
+  }, []);
+
+  const handleLogout = useCallback(async () => {
+    await authService.logout();
+    setUser(null);
   }, []);
 
   // Logo de la tienda configurado en el admin (público: /landing/general).
@@ -636,6 +653,21 @@ export default function App() {
     [navigate],
   );
 
+  if (!authChecked) {
+    return (
+      <div
+        className="flex h-screen items-center justify-center"
+        style={{ background: "var(--app-bg)" }}
+      >
+        <Loader2 size={24} className="animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Login onSuccess={setUser} />;
+  }
+
   return (
     <div className="flex h-screen overflow-hidden bg-(--app-bg)">
       <Sidebar
@@ -652,6 +684,7 @@ export default function App() {
           current={view}
           onOpenCommand={() => setCmdOpen(true)}
           user={user}
+          onLogout={handleLogout}
         />
         <main className="flex-1 overflow-y-auto">
           <ViewRenderer view={view} user={user} onNavigate={handleDashboardNavigate} />

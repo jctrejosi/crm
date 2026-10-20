@@ -109,6 +109,9 @@ Notas:
 - **Basic Auth adicional en el panel** (`PROTECT_WEB=true`, por defecto):
   defensa en profundidad sobre el login JWT. Cubre el HTML/JS del panel; el API
   no lo pide (las llamadas van a `HOST_API` desde el navegador del usuario).
+  - **Despliegue actual (2026-10-20)**: `PROTECT_WEB=false`; el panel se protege
+    solo con el login JWT. El HTML/JS es público (normal en una SPA), pero los
+    endpoints exigen la cookie `access_token`.
   - **Fail-closed**: si `PROTECT_WEB=true` y no hay contraseña, el contenedor
     **no arranca**.
   - La contraseña se hashea con bcrypt (`caddy hash-password`); se prefiere
@@ -247,7 +250,7 @@ algún `429`.
 | 1 | **Sin WAF ni anti-DDoS**: el origen queda expuesto con su IP real | Poner un proxy/CDN delante y restringir 80/443 a sus IPs |
 | 2 | **Sin 2FA** en las cuentas del panel | Añadirlo en la app o restringir el panel por VPN |
 | 3 | **Host (Windows Server)**: RDP suele estar expuesto | Restringir RDP por IP, cambiar puerto, 2FA; parchear el SO |
-| 4 | **Basic Auth con contraseña única compartida** | Un solo secreto para todo el equipo; rotarlo si sale alguien |
+| 4 | **Basic Auth con contraseña única compartida** (solo si `PROTECT_WEB=true`) | Un solo secreto para todo el equipo; rotarlo si sale alguien |
 | 5 | **Rate limit en memoria**: no sobrevive reinicios ni se comparte entre réplicas | Un WAF o un almacén compartido si algún día se escala |
 | 6 | **`/api-status` es público** | Es necesario para el healthcheck; expone solo estado |
 | 7 | **ia-service sin auth** (no publicado) | Si se publica algún día, ponerle autenticación y CORS estricto |

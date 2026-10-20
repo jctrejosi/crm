@@ -233,7 +233,10 @@ El CRM ya corre contenedorizado en el VPS compartido con el ecommerce.
 
 | Host | Uso | Estado |
 |---|---|---|
-| `crm.mercaldas.jcti.xyz` | panel (Basic Auth + JWT) y API en `/api` | A → `170.254.229.68`; certificado emitido |
+| `crm.mercaldas.jcti.xyz` | panel (login JWT propio) y API en `/api` | A → `170.254.229.68`; certificado emitido |
+
+En este despliegue el Basic Auth está **desactivado** (`PROTECT_WEB=false`):
+el panel se protege solo con el login JWT (email/usuario + contraseña).
 
 Solo hay **un nombre público**: el API se sirve en
 `https://crm.mercaldas.jcti.xyz/api` (Caddy quita el prefijo y proxya al backend
@@ -264,9 +267,9 @@ con el alias `app` del ecommerce en esa red.
 
 **Verificación hecha**
 
-- `curl` interno contra el Caddy del contenedor: panel `401` sin credenciales y
-  `200` con Basic Auth; `GET /api-status` → `{"status":"ok"}` con la BD
-  conectada.
+- `curl` interno contra el Caddy del contenedor: panel `200` (muestra el login
+  propio del CRM) y `GET /api/api-status` → `{"status":"ok"}` con la BD
+  conectada. El HTML/JS del panel es público; los datos exigen la cookie JWT.
 - Bundle del panel apunta a `https://crm.mercaldas.jcti.xyz/api`.
 - Puertos internos (3100, 8002, 8010–8012, 5436, 5437) **no** publicados.
 

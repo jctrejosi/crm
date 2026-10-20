@@ -236,7 +236,7 @@ curl -sS -m 3 http://170.254.229.68:8002/health || echo "OK: 8002 cerrado"
 curl -sS -m 3 http://170.254.229.68:5437/ || echo "OK: 5437 cerrado"
 
 # 3. Panel y API (TLS)
-curl -I https://crm.mercaldas.jcti.xyz/       # 401 (Basic Auth del panel)
+curl -I https://crm.mercaldas.jcti.xyz/       # 200 (login propio del panel)
 curl -I https://crm.mercaldas.jcti.xyz/api/api-status
 
 # 4. Rate limit del login (debe aparecer algún 429)
@@ -245,8 +245,13 @@ for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18; do curl -s -o /dev/null -
   -H 'Content-Type: application/json' -d '{"identifier":"x","password":"y"}'; done; echo
 ```
 
-Y en el navegador: abre `https://crm.mercaldas.jcti.xyz` (te pedirá la clave del
-panel y luego el login del CRM) y verifica que el candado TLS es válido.
+Y en el navegador: abre `https://crm.mercaldas.jcti.xyz` e inicia sesión con un
+usuario del CRM (email o usuario + contraseña). El panel usa una cookie JWT
+`httpOnly`; verifica que el candado TLS es válido.
+
+> Este despliegue tiene `PROTECT_WEB=false` (sin Basic Auth). Para volver a
+> añadir esa capa, define `PROTECT_WEB=true` en `docker/.env`, recrea el
+> contenedor y usa `ADMIN_USER`/`ADMIN_PASSWORD` (`ADMIN_PASSWORD_HASH` manda).
 
 ---
 
