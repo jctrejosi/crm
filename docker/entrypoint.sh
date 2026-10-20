@@ -77,6 +77,12 @@ caddy fmt --overwrite "${CADDYFILE_OUT:-/config/Caddyfile.generated}"
 
 # ---- Backend NestJS ----
 cd /app/backend
+# Extensiones de la BD operativa (postgis, citext, unaccent, pg_trgm…).
+# Idempotente; sustituye al bind mount del compose (no portable en Windows).
+echo "==> backend: extensiones de la BD"
+if ! DATABASE_URL="${DATABASE_URL:-}" DB_SSL="${DB_SSL:-false}" node scripts/init-db.js; then
+  echo "==> backend: ⚠️  init-db falló (¿DATABASE_URL o BD caída?); se continúa" >&2
+fi
 # Sync de esquema idempotente (ADD COLUMN IF NOT EXISTS); si falla se avisa,
 # pero no se aborta el arranque (la app reintenta al conectar).
 echo "==> backend: sync de esquema"

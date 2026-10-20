@@ -145,7 +145,9 @@ services:
       - "127.0.0.1:${CRM_DB_PORT:-5437}:5432"
     volumes:
       - crm_postgres_data:/var/lib/postgresql/data
-      - ../db/init-operational.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+      # El SQL de extensiones (db/init-operational.sql) NO se monta aquí: el
+      # bind mount con ruta Windows no lo entiende el motor Linux. Lo aplica el
+      # entrypoint del contenedor de aplicación (backend/scripts/init-db.js).
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${CRM_DB_USER:-postgres} -d ${CRM_DB_NAME:-crm}"]
       interval: 5s

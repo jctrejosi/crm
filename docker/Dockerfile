@@ -129,6 +129,9 @@ COPY --from=backend /build/backend/dist ./backend/dist
 COPY --from=backend /build/backend/node_modules ./backend/node_modules
 COPY --from=backend /build/backend/package.json ./backend/package.json
 COPY --from=backend /build/backend/scripts/sync-schema.js ./backend/scripts/sync-schema.js
+COPY --from=backend /build/backend/scripts/init-db.js ./backend/scripts/init-db.js
+# SQL idempotente de extensiones de la BD operativa (lo ejecuta init-db.js).
+COPY db/init-operational.sql ./db/init-operational.sql
 
 # Panel compilado.
 COPY --from=fronts /fronts/dist /srv/web
