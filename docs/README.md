@@ -15,6 +15,8 @@ Documentación local a cada componente:
 
 - `backend/README.md` — *(pendiente: hoy es el boilerplate de NestJS)*.
 - `ia-service/README.md` — servicio de IA (FastAPI + DeepSeek).
+- `ml/README.md` — servicios de modelos (clustering, xgboost, uplift) y cómo los
+  usa el backend.
 - `AGENTS.md` — guía para agentes (reglas de contexto del repo).
 - `README.md` (raíz) — entrada rápida del repo.
 

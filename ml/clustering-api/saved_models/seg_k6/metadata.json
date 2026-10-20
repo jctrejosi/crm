@@ -1,0 +1,15 @@
+{
+    "model_name": "seg_k6",
+    "algorithm": "minibatch",
+    "k": 6,
+    "scale": true,
+    "random_state": 42,
+    "created_at": "2026-08-31T08:41:20.223207",
+    "n_samples": 81955,
+    "n_features": 5,
+    "training_time_seconds": 2.2,
+    "metrics": {
+        "inertia": 118143.5930990318,
+        "silhouette": 0.2807355187485188
+    }
+}

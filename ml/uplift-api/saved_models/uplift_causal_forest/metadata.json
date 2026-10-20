@@ -1,0 +1,49 @@
+{
+    "model_name": "uplift_causal_forest",
+    "method": "causal_forest",
+    "treatment_column": "recibio_oferta",
+    "treatment_classes": [
+        "0",
+        "1"
+    ],
+    "outcome_column": "compro",
+    "outcome_is_binary": true,
+    "feature_columns": [
+        "frecuencia",
+        "monetario",
+        "ticket_promedio",
+        "categorias_distintas",
+        "segmento"
+    ],
+    "categorical_columns": {
+        "segmento": [
+            "0",
+            "1",
+            "2"
+        ]
+    },
+    "created_at": "2026-08-31T09:45:02.447247",
+    "records": 20000,
+    "features": 5,
+    "cv": 4,
+    "test_size": 0.2,
+    "metrics": {
+        "ate": 0.076091,
+        "auuc": 0.059161,
+        "gain_top_20": 0.048876,
+        "cate_min": 0.010786,
+        "cate_p25": 0.024908,
+        "cate_median": 0.030099,
+        "cate_p75": 0.051922,
+        "cate_max": 0.356579,
+        "test_size": 4000
+    },
+    "feature_importance": {
+        "frecuencia": 0.008811436851878827,
+        "monetario": 0.03302795584727216,
+        "ticket_promedio": 0.017046867583235027,
+        "categorias_distintas": 0.0049317142674026706,
+        "segmento": 0.9361820254502113
+    },
+    "training_time_seconds": 1.67
+}

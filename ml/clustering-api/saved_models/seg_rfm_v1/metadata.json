@@ -1,0 +1,24 @@
+{
+    "model_name": "seg_rfm_v1",
+    "algorithm": "minibatch",
+    "k": 6,
+    "scale": true,
+    "random_state": 42,
+    "created_at": "2026-08-31T14:07:31.928206",
+    "n_samples": 81997,
+    "n_features": 6,
+    "feature_names": [
+        "recencia_dias",
+        "frecuencia",
+        "monetario",
+        "ticket_promedio",
+        "categorias_distintas",
+        "antiguedad_dias"
+    ],
+    "id_column": "cliente_cod",
+    "training_time_seconds": 2.28,
+    "metrics": {
+        "inertia": 207073.34988282647,
+        "silhouette": 0.33400112539689114
+    }
+}

@@ -28,7 +28,7 @@ graph TD
     A["db/ADDT (Publidata · ADS)<br/>.adt/.add del POS VISADS_25"] --> B["db/adt-reader/upload-addt.py<br/>sube los .adt por SMB a Windows"]
     B --> C["db/adt-reader/export-publidata.ps1<br/>ODBC Advantage en Windows → CSV"]
     C --> D["Postgres analytics<br/>db/ (antes db-campaigns) · :5436<br/>schemas pos + analytics"]
-    D --> E["clustering-api (Astaroth :8010)<br/>lee analytics.vw_rfm_clientes"]
+    D --> E["clustering-api (ml/ · :8010)<br/>lee analytics.vw_rfm_clientes"]
     E --> F["backend NestJS /admin/campaigns/*"]
     F --> G["Panel (interface web)"]
 ```
@@ -109,15 +109,16 @@ FROM base;
 - Deuda técnica: la fecha de corte (`2026-05-31`) y el día excluido (`2026-05-14`)
   están **hardcodeados**. Si se rehace la vista, conviene parametrizarlos.
 
-### Dependencia externa: `clustering-api` (Astaroth)
+### Servicio de clustering (hoy en `ml/`)
 
 - El backend llama a `CLUSTERING_API_URL` (default `http://127.0.0.1:8010`),
   modelo `CLUSTERING_MODEL_NAME` (default `seg_rfm_v1`), con `X-Admin-Key`.
 - El clustering lee `SELECT * FROM analytics.vw_rfm_clientes` **server-side**.
-- **XGBoost (propensión) y uplift NO viven en este repo**: son código del servicio
-  externo. `analytics.cliente_segmento` es **salida del modelo**, no se puede
-  reproducir solo con SQL: hay que re-entrenar/re-asignar con ese servicio
-  (`POST /assign-from-db` con `auto_fit`, o `/segment-for-products`).
+- XGBoost (propensión) y uplift están en `ml/xgboost-api` y `ml/uplift-api`
+  (antes vivían en el repo Astaroth). `analytics.cliente_segmento` es **salida
+  del modelo**, no se puede reproducir solo con SQL: hay que re-entrenar o
+  re-asignar con `clustering-api` (`POST /assign-from-db` con `auto_fit`, o
+  `/segment-for-products`).
 
 ## 4. Backup
 
@@ -169,8 +170,7 @@ recarga es **completa**.
   y cargar a Postgres. `VENTAS` son ~14 GB/10M filas → streaming por lotes.
 
 **Fase 3 — Derivados**: recrear `analytics.vw_rfm_clientes` (viene en el schema) y
-**re-generar `cliente_segmento`** con el `clustering-api` externo (requiere acceso
-a ese servicio/repo).
+**re-generar `cliente_segmento`** con `clustering-api` (ya incluido en `ml/`).
 
 ## 7. Pendientes / TODO
 
@@ -178,6 +178,7 @@ a ese servicio/repo).
       respaldo versionado son las partes en `db/backups/` (commit único).
 - [ ] Escribir el importador **CSV → Postgres** (Vía A) para que la recarga sea
       reproducible sin intervención manual.
-- [ ] Conseguir/acceder al repo de **`clustering-api` (Astaroth)** para poder
-      re-entrenar y regenerar `cliente_segmento`.
+- [x] ~~Conseguir/acceder al repo de `clustering-api` (Astaroth)~~ — ya está
+      integrado en `ml/`. Falta definir el flujo operativo de re-entrenamiento
+      en producción (endpoints de training + persistencia en volúmenes).
 - [ ] Parametrizar las fechas hardcodeadas de la vista RFM (`2026-05-31`, `2026-05-14`).

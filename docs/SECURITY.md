@@ -5,9 +5,10 @@ un contenedor de aplicación (`docker/`): qué se protege, cómo, con qué valor
 cómo verificarlo y **qué NO queda cubierto**.
 
 > Ámbito: la imagen `docker/Dockerfile` (backend NestJS + ia-service FastAPI +
-> panel web + Caddy) y su `docker-compose.yml` (que además levanta las dos
-> Postgres en la red interna). El despliegue local (`dev.js`) queda fuera del
-> ámbito: no está pensado para internet.
+> servicios ML clustering/xgboost/uplift + panel web + Caddy) y su
+> `docker-compose.yml` (que además levanta las dos Postgres en la red interna).
+> El despliegue local (`dev.js`) queda fuera del ámbito: no está pensado para
+> internet.
 
 ---
 
@@ -21,6 +22,7 @@ Principio: **un solo proceso habla con internet (Caddy); nada más se publica.**
 | Caddy interno (proxy + panel) | `:8080` (HTTP) / `:8443` (HTTPS) | `127.0.0.1:30280` / `127.0.0.1:30281` | solo lo alcanza el edge (red `shared_edge`) |
 | Backend NestJS | `127.0.0.1:3100` | ❌ | loopback dentro del contenedor |
 | ia-service FastAPI | `127.0.0.1:8002` | ❌ | solo lo llama el backend |
+| clustering / xgboost / uplift | `127.0.0.1:8010-8012` | ❌ | loopback; los llama el backend |
 | Postgres `crm` | red `crm_internal` (`internal: true`) | ❌ (solo `127.0.0.1:5437` del host) | herramientas/ML locales |
 | Postgres `analytics` | red `crm_internal` (`internal: true`) | ❌ (solo `127.0.0.1:5436` del host) | la leen los ML nativos |
 
@@ -33,7 +35,7 @@ Principio: **un solo proceso habla con internet (Caddy); nada más se publica.**
   (**sin** ruta a internet) para las bases, y `shared_edge` (red compartida con
   el edge; no publicada).
 - Los puertos de las bases se publican **bindeando a `127.0.0.1`**: sirven a
-  herramientas del host y a los modelos de ML nativos, nunca a internet.
+  herramientas del host, nunca a internet.
 - Modo directo (un solo proyecto en el servidor): `PUBLIC_HTTP_PORT=80` /
   `PUBLIC_HTTPS_PORT=443` y `TLS=true`; entonces este contenedor es el punto de
   entrada (`RUNBOOK-EXPOSICION.md` §8).
@@ -249,7 +251,7 @@ algún `429`.
 | 5 | **Rate limit en memoria**: no sobrevive reinicios ni se comparte entre réplicas | Un WAF o un almacén compartido si algún día se escala |
 | 6 | **`/api-status` es público** | Es necesario para el healthcheck; expone solo estado |
 | 7 | **ia-service sin auth** (no publicado) | Si se publica algún día, ponerle autenticación y CORS estricto |
-| 8 | **Modelos de ML externos** (clustering/xgboost/uplift) con clave por defecto `change-me` | Definir `CLUSTERING_API_KEY` real y no exponer los puertos ML |
+| 8 | **Servicios ML** (clustering/xgboost/uplift) dentro del contenedor con `ADMIN_KEY` por defecto `change-me` | Definir `CLUSTERING_API_KEY` real; escuchan en loopback y no se publican |
 | 9 | **Servicio de SMS externo** llamado desde el navegador | Debe ser HTTPS y con CORS restringido al `HOST_WEB` |
 | 10 | **Sin alertas ni monitorización** | Alertas de caída y de picos de 401/429/5xx |
 | 11 | **Secretos sin rotación automática** | Rotación programada y tras cualquier incidente |

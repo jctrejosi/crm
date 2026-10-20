@@ -1,0 +1,49 @@
+{
+    "model_name": "uplift_x_learner",
+    "method": "x_learner",
+    "treatment_column": "recibio_oferta",
+    "treatment_classes": [
+        "0",
+        "1"
+    ],
+    "outcome_column": "compro",
+    "outcome_is_binary": true,
+    "feature_columns": [
+        "frecuencia",
+        "monetario",
+        "ticket_promedio",
+        "categorias_distintas",
+        "segmento"
+    ],
+    "categorical_columns": {
+        "segmento": [
+            "0",
+            "1",
+            "2"
+        ]
+    },
+    "created_at": "2026-08-31T09:45:00.621734",
+    "records": 20000,
+    "features": 5,
+    "cv": 4,
+    "test_size": 0.2,
+    "metrics": {
+        "ate": 0.226213,
+        "auuc": 0.052441,
+        "gain_top_20": 0.015452,
+        "cate_min": -0.453643,
+        "cate_p25": 0.176675,
+        "cate_median": 0.215151,
+        "cate_p75": 0.260642,
+        "cate_max": 0.785087,
+        "test_size": 4000
+    },
+    "feature_importance": {
+        "frecuencia": 0.050114485809672614,
+        "monetario": 0.07651649592490868,
+        "ticket_promedio": 0.0690619112322107,
+        "categorias_distintas": 0.03119270837632939,
+        "segmento": 0.02113553336719051
+    },
+    "training_time_seconds": 2.08
+}

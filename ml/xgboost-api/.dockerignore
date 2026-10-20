@@ -1,0 +1,16 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+.env
+*.env
+
+.git
+.gitignore
+
+plan.txt
+readme.md
+saved_models/

@@ -48,6 +48,16 @@ services:
       RATE_LIMIT_ENABLED: "true"
       # El backend llama a los modelos por loopback dentro del contenedor.
       IA_SERVICE_URL: "http://127.0.0.1:8002"
+      # Servicios de ML: ahora viven en ESTE contenedor (loopback, sin exponerse).
+      # Se fijan aquí para que manden sobre cualquier valor antiguo de docker/.env.
+      CLUSTERING_API_URL: "http://127.0.0.1:8010"
+      XGBOOST_API_URL: "http://127.0.0.1:8011"
+      UPLIFT_API_URL: "http://127.0.0.1:8012"
+      # ADMIN_KEY de los tres servicios ML; el backend la envía como X-Admin-Key
+      # a clustering (CLUSTERING_API_KEY). Deben coincidir.
+      ADMIN_KEY: ${CLUSTERING_API_KEY:-change-me}
+      # clustering-api lee la réplica `analytics` (vista RFM), no la operativa.
+      ANALYTICS_DATABASE_URL: postgres://${ANALYTICS_DB_USER:-postgres}:${ANALYTICS_DB_PASSWORD:-postgres}@analytics-postgres:5432/${ANALYTICS_DB_NAME:-analytics}
       # Postgres del CRM por la red interna (nombre de servicio). Si defines
       # DATABASE_URL en docker/.env, ese valor manda.
       DATABASE_URL: ${DATABASE_URL:-postgres://postgres:postgres@crm-postgres:5432/crm}
@@ -73,6 +83,13 @@ services:
       - caddy_config:/config
       # Logs de winston del backend: persisten y no crecen fuera de control.
       - app_logs:/app/backend/logs
+      # Modelos entrenados de ML: persisten entre reinicios/redeploys. Al
+      # crearse el volumen por primera vez, Docker lo siembra con los modelos
+      # horneados en la imagen; a partir de ahí, los re-entrenamientos quedan
+      # guardados aquí.
+      - ml_clustering_models:/app/ml/clustering-api/saved_models
+      - ml_xgboost_models:/app/ml/xgboost-api/saved_models
+      - ml_uplift_models:/app/ml/uplift-api/saved_models
     depends_on:
       crm-postgres:
         condition: service_healthy
@@ -82,10 +99,10 @@ services:
       - edge      # salida a internet (DeepSeek, ACME…) y puertos publicados
       - internal  # red interna (BD) — no publicada
       - shared_edge  # solo se usa si un edge compartido publica 80/443 por ti
-    # Los modelos ML corren en el contenedor `mercaldas_astaroth_app` (red
-    # `shared_edge`): las CLUSTERING/XGBOOST/UPLIFT_API_URL del .env apuntan
-    # allí. `host.docker.internal` queda como alternativa si algún día corren
-    # NATIVOS en el host (en Linux/WSL2 lo habilita este mapeo).
+    # Los servicios de ML (clustering/xgboost/uplift) corren en este mismo
+    # contenedor y escuchan en 127.0.0.1; ya NO se depende de `mercaldas_astaroth_app`.
+    # `host.docker.internal` queda como alternativa si algún día corren NATIVOS en
+    # el host (en Linux/WSL2 lo habilita este mapeo).
     extra_hosts:
       - "host.docker.internal:host-gateway"
     # Endurecimiento: sin capacidades extra y sin escalada de privilegios. Al
@@ -96,11 +113,13 @@ services:
     cap_drop:
       - ALL
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3100/api-status"]
+      test:
+        ["CMD-SHELL", "curl -fsS http://127.0.0.1:3100/api-status && curl -fsS http://127.0.0.1:8010/health && curl -fsS http://127.0.0.1:8011/health && curl -fsS http://127.0.0.1:8012/health"]
       interval: 30s
       timeout: 5s
       retries: 5
-      start_period: 60s
+      # Importar sklearn/xgboost/shap/econml y cargar los modelos tarda.
+      start_period: 180s
     # Evita que los logs llenen el disco (el backend registra cada petición).
     logging:
       driver: json-file
@@ -187,6 +206,12 @@ volumes:
     name: crm_caddy_config
   app_logs:
     name: crm_app_logs
+  ml_clustering_models:
+    name: crm_ml_clustering_models
+  ml_xgboost_models:
+    name: crm_ml_xgboost_models
+  ml_uplift_models:
+    name: crm_ml_uplift_models
   # Mismos nombres que crm/db/docker-compose.yml: los datos viven en un único
   # volumen aunque la BD se levante con uno u otro compose (no se duplican).
   crm_postgres_data:

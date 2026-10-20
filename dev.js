@@ -8,11 +8,15 @@
  *   backend   → NestJS propio del CRM                 :3100  [crm/backend]
  *   web       → Interface web (React + Vite)          :8444  [crm/interface web]
  *   ia        → ia-service (FastAPI + DeepSeek)       :8002  [crm/ia-service]
+ *   clustering→ clustering-api (scikit-learn)          :8010  [crm/ml/clustering-api]
+ *   xgboost   → xgboost-api (propensión, SHAP)         :8011  [crm/ml/xgboost-api]
+ *   uplift    → uplift-api (econml)                    :8012  [crm/ml/uplift-api]
  *
  * Uso:
  *   node crm/dev.js                 # levanta todo (dev)
  *   node crm/dev.js --backend --web # solo los seleccionados
- *   node crm/dev.js --prod          # backend sin watch; ia sin --reload
+ *   node crm/dev.js --prod          # backend sin watch; ia/ml sin --reload
+ *   node crm/dev.js --ml            # solo clustering + xgboost + uplift
  *   node crm/dev.js --restore       # al montar la BD, la restaura desde db/backups
  *   node crm/dev.js --migrate       # levanta todo y, al final, refresca la BD `crm`
  *                                   #   desde la del ecommerce (destructivo)
@@ -21,11 +25,10 @@
  *
  * Un flag desconocido no levanta nada (aborta; usa --help para ver las opciones).
  *
- * Dependencias locales: si faltan node_modules (backend/web) o .venv (ia),
+ * Dependencias locales: si faltan node_modules (backend/web) o .venv (ia/ml),
  * se instalan automáticamente antes de arrancar.
  *
  * Dependencias externas (no las levanta este script):
- *   - ML Astaroth: clustering :8010, xgboost :8011, uplift :8012 (leen crm/db).
  *   - SMS (Vassago/sms_service) para la prueba de envío.
  *
  * Bases de datos propias del CRM (crm/db, docker):
@@ -66,9 +69,15 @@ const SERVICES = [
   { name: "backend", port: 3100, kind: "node", dir: "backend", install: ["npm", "install"], dev: ["npm", "run", "dev"], prod: ["npm", "run", "start:prod"] },
   { name: "web", port: 8444, kind: "node", dir: "interface web", install: ["pnpm", "install"], dev: ["pnpm", "run", "dev"], prod: ["pnpm", "run", "preview"] },
   { name: "ia", port: 8002, kind: "python", dir: "ia-service" },
+  { name: "clustering", port: 8010, kind: "python", dir: "ml/clustering-api" },
+  { name: "xgboost", port: 8011, kind: "python", dir: "ml/xgboost-api" },
+  { name: "uplift", port: 8012, kind: "python", dir: "ml/uplift-api" },
 ];
 
-const C = { db: "\x1b[36m", backend: "\x1b[31m", web: "\x1b[32m", ia: "\x1b[33m", reset: "\x1b[0m" };
+/** Servicios de ML que comparten ADMIN_KEY y (clustering) la BD analytics. */
+const ML_SERVICES = new Set(["clustering", "xgboost", "uplift"]);
+
+const C = { db: "\x1b[36m", backend: "\x1b[31m", web: "\x1b[32m", ia: "\x1b[33m", clustering: "\x1b[35m", xgboost: "\x1b[34m", uplift: "\x1b[95m", reset: "\x1b[0m" };
 
 /** Flags `--x` reconocidos. Cualquier otro aborta (no se levanta nada). */
 const VALID_FLAGS = new Set([
@@ -78,6 +87,7 @@ const VALID_FLAGS = new Set([
   "--help",
   "--restore",
   "--migrate",
+  "--ml",
   ...SERVICES.map((s) => `--${s.name}`),
 ]);
 
@@ -150,6 +160,8 @@ function selectServices(argv) {
   const flags = argv.filter((a) => a.startsWith("--")).map((a) => a.slice(2).toLowerCase());
   const known = new Set(SERVICES.map((s) => s.name));
   const chosen = flags.filter((f) => known.has(f));
+  // `--ml` agrupa los tres servicios de modelos.
+  if (flags.includes("ml")) chosen.push("clustering", "xgboost", "uplift");
   if (!chosen.length) return SERVICES;
   return SERVICES.filter((s) => chosen.includes(s.name));
 }
@@ -435,8 +447,8 @@ function venvPython(dir) {
 /** Localiza un Python del sistema para crear el venv (Windows: `py -3`). */
 function findSystemPython() {
   const candidates = IS_WIN
-    ? [["py", ["-3"]], ["python", []], ["python3", []]]
-    : [["python3", []], ["python", []]];
+    ? [["py", ["-3.13"]], ["py", ["-3.12"]], ["py", ["-3"]], ["python", []], ["python3", []]]
+    : [["python3.13", []], ["python3.12", []], ["python3", []], ["python", []]];
   for (const [cmd, base] of candidates) {
     try {
       const r = spawnSync(cmd, [...base, "--version"], { stdio: "ignore" });
@@ -448,20 +460,31 @@ function findSystemPython() {
   return null;
 }
 
-function ensureIaVenv() {
-  const dir = path.join(ROOT, "ia-service");
+function ensurePythonVenv(svc) {
+  const dir = path.join(ROOT, svc.dir);
+  const color = C[svc.name] || "";
+  const tag = `${color}[${svc.name}]${C.reset}`;
   if (fs.existsSync(venvPython(dir))) return true;
+
+  // Un .venv no es portable entre sistemas operativos/máquinas. Si el
+  // directorio existe pero no el intérprete esperado (p. ej. copiado de Linux a
+  // Windows), lo borramos para recrearlo limpio en vez de mezclar estructuras.
+  const venvDir = path.join(dir, ".venv");
+  if (fs.existsSync(venvDir)) {
+    console.log(`${tag} 🧹 .venv existente no válido en este SO; lo recreo.`);
+    fs.rmSync(venvDir, { recursive: true, force: true });
+  }
 
   const sysPy = findSystemPython();
   if (!sysPy) {
     console.error(
-      `${C.ia}[ia]${C.reset} ✘ no encontré Python 3 en el sistema ` +
+      `${tag} ✘ no encontré Python 3 en el sistema ` +
         (IS_WIN ? "(instala Python y marca 'Add python.exe to PATH', o usa `py -3`)." : "(instala python3)."),
     );
     return false;
   }
 
-  console.log(`${C.ia}[ia]${C.reset} 📦 creando .venv e instalando dependencias...`);
+  console.log(`${tag} 📦 creando .venv e instalando dependencias...`);
   const steps = [
     [sysPy.cmd, [...sysPy.base, "-m", "venv", ".venv"]],
     // `python -m pip` es más robusto que invocar el script pip del venv.
@@ -470,7 +493,7 @@ function ensureIaVenv() {
   for (const [cmd, args] of steps) {
     const r = spawnSync(cmd, args, { cwd: dir, stdio: "inherit", shell: false });
     if (r.status !== 0) {
-      console.error(`${C.ia}[ia]${C.reset} ✘ falló: ${[cmd, ...args].join(" ")}`);
+      console.error(`${tag} ✘ falló: ${[cmd, ...args].join(" ")}`);
       return false;
     }
   }
@@ -509,13 +532,26 @@ function startService(svc, mode, opts = {}) {
   }
 
   let cmd;
+  const extraEnv = {};
   if (svc.kind === "python") {
-    if (!ensureIaVenv()) return null;
+    if (!ensurePythonVenv(svc)) return null;
     cmd = [
       venvPython(path.join(ROOT, svc.dir)), "-m", "uvicorn",
       "app.main:app", "--host", "0.0.0.0", "--port", String(svc.port),
     ];
     if (mode === "dev") cmd.push("--reload");
+    // Los servicios ML comparten ADMIN_KEY (protege sus /admin/*).
+    if (ML_SERVICES.has(svc.name)) {
+      extraEnv.ADMIN_KEY =
+        process.env.CLUSTERING_API_KEY ?? "change-me";
+    }
+    // clustering-api lee `DATABASE_URL`; en el backend esa variable es la BD
+    // operativa, así que aquí le pasamos la réplica `analytics` (vista RFM).
+    if (svc.name === "clustering") {
+      extraEnv.DATABASE_URL =
+        process.env.ANALYTICS_DATABASE_URL ??
+        "postgres://postgres:postgres@localhost:5436/analytics";
+    }
   } else {
     if (!ensureNodeDeps(svc)) return null;
     cmd = svc[mode === "prod" ? "prod" : "dev"];
@@ -530,6 +566,7 @@ function startService(svc, mode, opts = {}) {
     cwd: path.join(ROOT, svc.dir),
     stdio: ["ignore", fd, fd],
     detached: true,
+    env: { ...process.env, ...extraEnv },
     // npm/pnpm necesitan shell en Windows; el python del venv no (su ruta
     // puede llevar espacios y con shell se rompería).
     shell: IS_WIN && svc.kind === "node",
@@ -581,9 +618,13 @@ function printHelp() {
       "  --backend    NestJS del CRM                 :3100",
       "  --web        Interface web (Vite)           :8444",
       "  --ia         ia-service (FastAPI)           :8002",
+      "  --ml         los 3 modelos ML (clustering+xgboost+uplift)",
+      "  --clustering clustering-api (scikit-learn)  :8010",
+      "  --xgboost    xgboost-api (propensión)       :8011",
+      "  --uplift     uplift-api (econml)            :8012",
       "",
       "MODOS",
-      "  --prod       backend sin watch · ia sin --reload · web en preview",
+      "  --prod       backend sin watch · ia/ml sin --reload · web en preview",
       "  --restore    al montar la BD, restaura analytics desde db/backups",
       "               (forzado: sobrescribe la BD aunque ya tenga datos)",
       "  --migrate    al terminar de levantar, restaura la BD operativa `crm` (:5437)",
@@ -593,11 +634,10 @@ function printHelp() {
       "  --help       esta ayuda",
       "",
       "DEPENDENCIAS LOCALES",
-      "  node_modules (backend/web) y .venv (ia) se instalan solos si faltan.",
+      "  node_modules (backend/web) y .venv (ia y ml) se instalan solos si faltan.",
       "",
       "DEPENDENCIAS EXTERNAS",
-      "  ML Astaroth (clustering :8010 · xgboost :8011 · uplift :8012) lee la BD analytics (:5436).",
-      "  SMS: Vassago/sms_service (VITE_SMS_API_URL en crm/interface web/.env).",
+      "  SMS: Vassago/sms_service (VITE_SMS_API_URL en crm/interface web/.env).",,
       "",
       "BASES DE DATOS (propias del CRM, en crm/db)",
       "  crm       :5437  operativa: campañas, catálogo, pedidos, clientes, usuarios.",

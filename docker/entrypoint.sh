@@ -2,7 +2,10 @@
 # Arranque del contenedor de aplicación del CRM:
 #   1. backend NestJS → 127.0.0.1:${BACKEND_PORT:-3100}  (interno)
 #   2. ia-service     → 127.0.0.1:${IA_PORT:-8002}       (interno)
-#   3. Caddy          → :${HTTP_PORT:-8080} / :${HTTPS_PORT:-8443}  (el compose publica 80/443)
+#   3. clustering-api → 127.0.0.1:${CLUSTERING_PORT:-8010} (interno)
+#   4. xgboost-api    → 127.0.0.1:${XGBOOST_PORT:-8011}    (interno)
+#   5. uplift-api     → 127.0.0.1:${UPLIFT_PORT:-8012}     (interno)
+#   6. Caddy          → :${HTTP_PORT:-8080} / :${HTTPS_PORT:-8443}  (el compose publica 80/443)
 #
 # El Caddyfile se genera en runtime desde variables de entorno
 # (gen-caddyfile.mjs), así que los dominios/hosts se configuran sin rebuild.
@@ -10,10 +13,13 @@ set -euo pipefail
 
 BACKEND_PORT="${BACKEND_PORT:-3100}"
 IA_PORT="${IA_PORT:-8002}"
+CLUSTERING_PORT="${CLUSTERING_PORT:-8010}"
+XGBOOST_PORT="${XGBOOST_PORT:-8011}"
+UPLIFT_PORT="${UPLIFT_PORT:-8012}"
 # Caddy no corre como root → escucha en puertos altos que el compose publica 80/443.
 HTTP_PORT="${HTTP_PORT:-8080}"
 HTTPS_PORT="${HTTPS_PORT:-8443}"
-export BACKEND_PORT IA_PORT HTTP_PORT HTTPS_PORT
+export BACKEND_PORT IA_PORT CLUSTERING_PORT XGBOOST_PORT UPLIFT_PORT HTTP_PORT HTTPS_PORT
 
 # ── Salvaguardas de seguridad (fail-closed) ─────────────────
 
@@ -64,7 +70,7 @@ if [ -z "${CORS_ORIGIN:-}" ]; then
   export CORS_ORIGIN
 fi
 
-echo "==> CRM (contenedor): backend :${BACKEND_PORT} · ia-service :${IA_PORT} · Caddy :${HTTP_PORT}/:${HTTPS_PORT}"
+echo "==> CRM (contenedor): backend :${BACKEND_PORT} · ia-service :${IA_PORT} · clustering :${CLUSTERING_PORT} · xgboost :${XGBOOST_PORT} · uplift :${UPLIFT_PORT} · Caddy :${HTTP_PORT}/:${HTTPS_PORT}"
 node /app/gen-caddyfile.mjs
 # Normaliza el formato (evita el aviso de 'not formatted' de Caddy).
 caddy fmt --overwrite "${CADDYFILE_OUT:-/config/Caddyfile.generated}"
@@ -90,6 +96,34 @@ echo "==> ia-service: uvicorn (:${IA_PORT})"
 /opt/ia-venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port "$IA_PORT" &
 IA_PID=$!
 
+# ---- Servicios de ML (clustering / xgboost / uplift) ----
+# Escuchan SOLO en loopback: los llama el backend, nunca se exponen.
+# `ADMIN_KEY` protege los /admin/* de los tres; el backend la envía como
+# X-Admin-Key a clustering (CLUSTERING_API_KEY). Deben coincidir.
+export ADMIN_KEY="${ADMIN_KEY:-${CLUSTERING_API_KEY:-change-me}}"
+# clustering-api lee `DATABASE_URL`, pero esa variable ya apunta a la BD
+# operativa `crm` (la usa el backend). Aquí se le pasa la réplica `analytics`
+# SOLO al proceso de clustering para que sus consultas RFM funcionen.
+ANALYTICS_URL="${ANALYTICS_DATABASE_URL:-}"
+
+cd /app/ml/clustering-api
+echo "==> clustering-api: uvicorn (127.0.0.1:${CLUSTERING_PORT})"
+DATABASE_URL="$ANALYTICS_URL" /opt/clustering-venv/bin/uvicorn app.main:app \
+  --host 127.0.0.1 --port "$CLUSTERING_PORT" &
+CLUSTERING_PID=$!
+
+cd /app/ml/xgboost-api
+echo "==> xgboost-api: uvicorn (127.0.0.1:${XGBOOST_PORT})"
+/opt/xgboost-venv/bin/uvicorn app.main:app \
+  --host 127.0.0.1 --port "$XGBOOST_PORT" &
+XGBOOST_PID=$!
+
+cd /app/ml/uplift-api
+echo "==> uplift-api: uvicorn (127.0.0.1:${UPLIFT_PORT})"
+/opt/uplift-venv/bin/uvicorn app.main:app \
+  --host 127.0.0.1 --port "$UPLIFT_PORT" &
+UPLIFT_PID=$!
+
 # ---- Caddy (proxy + TLS + estáticos) ----
 cd /app
 echo "==> caddy: :${HTTP_PORT}/:${HTTPS_PORT}"
@@ -97,6 +131,6 @@ caddy run --config "${CADDYFILE_OUT:-/config/Caddyfile.generated}" --adapter cad
 CADDY_PID=$!
 
 # Si cualquiera muere, se detiene todo (el orquestador reinicia el contenedor).
-trap 'kill "$BACKEND_PID" "$IA_PID" "$CADDY_PID" 2>/dev/null || true' INT TERM EXIT
+trap 'kill "$BACKEND_PID" "$IA_PID" "$CLUSTERING_PID" "$XGBOOST_PID" "$UPLIFT_PID" "$CADDY_PID" 2>/dev/null || true' INT TERM EXIT
 
-wait -n "$BACKEND_PID" "$IA_PID" "$CADDY_PID"
+wait -n "$BACKEND_PID" "$IA_PID" "$CLUSTERING_PID" "$XGBOOST_PID" "$UPLIFT_PID" "$CADDY_PID"

@@ -27,6 +27,9 @@ Los levanta [dev.js](../dev.js) (`node dev.js`):
 | **web** | `interface web/` | React 19 + Vite 8 + Tailwind 4 | **8444** | <http://localhost:8444> |
 | **backend** | `backend/` | NestJS 11 + Drizzle ORM | **3100** | `/api/docs` (Swagger) |
 | **ia** | `ia-service/` | FastAPI + DeepSeek | **8002** | `/docs`, `/health` |
+| **clustering** | `ml/clustering-api/` | scikit-learn + joblib | **8010** | interno (lo llama el backend) |
+| **xgboost** | `ml/xgboost-api/` | xgboost + SHAP | **8011** | interno |
+| **uplift** | `ml/uplift-api/` | econml | **8012** | interno |
 | **db · crm** | `db/` | Postgres 16 + PostGIS (docker) | **5437** | operativa |
 | **db · analytics** | `db/` | Postgres 16 (docker) | **5436** | réplica del legado |
 
@@ -44,6 +47,7 @@ crm/
 ├── backend/               # API NestJS + Drizzle (esquema, módulos, scripts)
 ├── interface web/         # Panel React + Vite (gestor: pnpm)
 ├── ia-service/            # FastAPI + DeepSeek (contenido de campañas)
+├── ml/                    # Modelos ML: clustering · xgboost · uplift
 ├── db/                    # Postgres (compose, DDL, backups, scripts)
 └── logs/                  # Salida de los servicios (git-ignored)
 ```
@@ -63,8 +67,9 @@ node dev.js --help
 En `--prod` el backend va sin watch, el ia sin `--reload` y la web en `preview`.
 
 **Dependencias que se instalan solas** si faltan: `node_modules` (backend, web) y
-`.venv` (ia). Requisitos de la máquina: **Node**, **pnpm**, **Python 3** y
-**Docker** (para las BDs).
+`.venv` (ia y los tres servicios de `ml/`). Requisitos de la máquina: **Node 20+**,
+**pnpm**, **Docker** (para las BDs) y **Python 3.13** — los modelos de `ml/` fijan
+versiones que exigen Python ≥3.12.
 
 ### ⚠ Portabilidad (Windows / discos / copias)
 
@@ -142,7 +147,7 @@ Dos Postgres propios (compose `name: db-campaigns`):
 | BD | Contenedor | Puerto | Contenido | Quién la usa |
 |---|---|---|---|---|
 | **`crm`** operativa | `crm_postgres` | 5437 | `campaigns`, `campaign_*`, `products`, `customers`, `orders`, `users`, `settings`… | El **backend** (Drizzle) |
-| **`analytics`** réplica | `analytics_postgres` | 5436 | schemas `pos` (`clientes` 184k, `venta_lineas` ~10M) y `analytics` (`vw_rfm_clientes` 82k) | Los **modelos de ML** (Astaroth) |
+| **`analytics`** réplica | `analytics_postgres` | 5436 | schemas `pos` (`clientes` 184k, `venta_lineas` ~10M) y `analytics` (`vw_rfm_clientes` 82k) | Los **modelos de ML** (`ml/`) |
 
 - `db/docker-compose.yml` · `db/schema.sql` (DDL de analytics, 1.4k líneas) ·
   `db/init-operational.sql` (extensiones de `crm`) · `db/backups/` (dumps
@@ -151,17 +156,35 @@ Dos Postgres propios (compose `name: db-campaigns`):
   [migracion-analytics.md](./migracion-analytics.md),
   [backups-analytics.md](./backups-analytics.md).
 
+### 5.5 `ml/` — modelos de ML
+
+Tres APIs FastAPI independientes con sus propios venvs y modelos. Antes vivían
+en el repo `Astaroth`; ahora se despliegan **dentro del contenedor del CRM**.
+
+| Servicio | Puerto | Qué hace | Modelo por defecto |
+|---|---|---|---|
+| `clustering-api` | 8010 | Segmentación (`/segment-clients`, `/segment-for-products`), fit/assign | `seg_rfm_v1` |
+| `xgboost-api` | 8011 | Propensión de compra (`/propensity/predict`, SHAP) | `prop_activo` |
+| `uplift-api` | 8012 | Persuasibilidad (`/uplift/predict`, econml) | `uplift_dr_learner` |
+
+- `clustering-api` lee la réplica `analytics` (vista `vw_rfm_clientes`). En
+  producción `docker/entrypoint.sh` le pasa `ANALYTICS_DATABASE_URL` **solo a
+  ese proceso** (el `DATABASE_URL` global es la BD operativa). En local lo hace
+  `dev.js`.
+- `ADMIN_KEY` de los tres = `CLUSTERING_API_KEY` (el backend la envía como
+  `X-Admin-Key` a clustering).
+- Los modelos están en `ml/*/saved_models/` (horneados en la imagen; en prod se
+  montan en volúmenes `crm_ml_*_models` para persistir re-entrenamientos).
+- Detalle: [`ml/README.md`](../ml/README.md).
+
 ## 6. Dependencias externas (NO las levanta `dev.js`)
 
-- **ML Astaroth** (`/home/jk/Proyectos/seeds/Astaroth`): `clustering :8010`,
-  `xgboost :8011`, `uplift :8012`. Leen la BD `analytics` (:5436) y producen la
-  segmentación, la propensión (`cliente_segmento`) y el uplift.
 - **Servicio de SMS** (`seeds/Vassago/sms_service`): usado por "Enviar prueba".
-  Se configura en `interface web/.env` (`VITE_SMS_API_URL`).
-  Ojo: si XGBoost ocupa `:8011`, el SMS debe correr en otro puerto.
+  Se configura en `interface web/.env` (`VITE_SMS_API_URL`). Los modelos ocupan
+  `8010–8012`, así que el SMS debe usar otro puerto (por defecto `8015`).
 
-> El backend es un consumidor: si Astaroth no está arriba, la segmentación y el
-> scoring de campañas fallan, aunque el resto del CRM funcione.
+> Los modelos de ML **ya no son externos**: se movieron de Astaroth a `ml/` y los
+> levanta `dev.js` / el contenedor de producción. Solo el SMS sigue fuera.
 
 ## 7. Cómo se levanta la primera vez (máquina nueva)
 
@@ -174,9 +197,9 @@ Dos Postgres propios (compose `name: db-campaigns`):
 
 ## 8. Deuda técnica y pendientes conocidos
 
-- **Portabilidad del lanzador**: `dev.js` no detecta `node_modules`/`.venv`
-  ajenos al SO y los reutiliza (ver §4). Candidato a endurecer
-  `ensureNodeDeps`/`ensureIaVenv`.
+- **Portabilidad del lanzador**: `ensureNodeDeps` sigue reutilizando un
+  `node_modules` ajeno al SO (no detecta que falten los `.cmd` en Windows). Los
+  `.venv` de Python sí se recrean si no corresponden al SO (`ensurePythonVenv`).
 - **Archivos gigantes**: `interface web/src/views/Campaigns.tsx` (~6.7k líneas) y
   `backend/drizzle/schema.ts` (~4.25k líneas). Costosos de leer/editar enteros.
 - **`backend/README.md` es el boilerplate de NestJS**, no documenta el CRM.
@@ -189,8 +212,9 @@ Dos Postgres propios (compose `name: db-campaigns`):
   `db/backups/`. Hay que copiarlas fuera de la máquina.
 - **Sincronización ecommerce→crm**: no existe proceso continuo; la copia es
   puntual.
-- **`clustering-api` (Astaroth)** es externo: para re-entrenar/regenerar
-  `analytics.cliente_segmento` hay que tener acceso a ese repo/servicio.
+- **Re-entrenamiento de modelos**: los servicios están integrados, pero
+  regenerar `analytics.cliente_segmento`/modelos requiere llamar a los endpoints
+  de training de `ml/` y persistir los artefactos (volúmenes `crm_ml_*_models`).
 - **Refs obsoletas** en docs y comentarios a la antigua carpeta `db-campaigns/`
   y a `db/docker/` (del ecommerce), ya corregidas parcialmente en `docs/`.
 

@@ -7,7 +7,7 @@ El CRM tiene **dos** bases PostgreSQL **propias**, ambas definidas en
 | BD | Contenedor | Puerto | Imagen | Contenido | Quién la usa |
 |---|---|---|---|---|---|
 | **`crm`** (operativa) | `crm_postgres` | **5437** | `postgis/postgis:16-3.4` | `campaigns`, `campaign_*`, `products`, `customers`, `orders`, `users`, `settings`… | El **backend** (Drizzle ORM) |
-| **`analytics`** (réplica) | `analytics_postgres` | **5436** | `postgres:16-alpine` | schemas `pos` y `analytics` (legado Advantage) | Los **modelos de ML** (Astaroth) |
+| **`analytics`** (réplica) | `analytics_postgres` | **5436** | `postgres:16-alpine` | schemas `pos` y `analytics` (legado Advantage) | Los **modelos de ML** de `ml/` |
 
 - Origen de la réplica y plan de reconstrucción: [migracion-analytics.md](./migracion-analytics.md).
 - Backups (dumps troceados): [backups-analytics.md](./backups-analytics.md).
@@ -41,8 +41,8 @@ Conteos de referencia (dump 2026-10-02): `pos.venta_lineas` 9.998.703 ·
 
 - **DDL versionado**: `db/schema.sql` (`pg_dump --schema-only`, ~1.4k líneas).
 - El volcado son ~346 MB y vive en el volumen docker `analytics_postgres_data`.
-- El ML (Astaroth) lee `analytics.vw_rfm_clientes` **server-side** y escribe
-  `analytics.cliente_segmento`.
+- Los modelos de `ml/` leen `analytics.vw_rfm_clientes` **server-side** y
+  escriben `analytics.cliente_segmento`.
 
 ## Levantarlas
 
@@ -63,7 +63,7 @@ Conexiones:
 
 - CRM operativa: `postgresql://postgres:postgres@localhost:5437/crm`
 - Analytics: `postgresql://postgres:postgres@localhost:5436/analytics`
-  (es la `DATABASE_URL` que usa el `clustering-api` de Astaroth).
+  (es la `DATABASE_URL` que usa `ml/clustering-api`).
 
 ## Backup y restauración
 

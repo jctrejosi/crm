@@ -1,0 +1,15 @@
+{
+    "model_name": "seg_k4",
+    "algorithm": "minibatch",
+    "k": 4,
+    "scale": true,
+    "random_state": 42,
+    "created_at": "2026-08-31T08:41:15.360504",
+    "n_samples": 81955,
+    "n_features": 5,
+    "training_time_seconds": 2.19,
+    "metrics": {
+        "inertia": 156867.00162244562,
+        "silhouette": 0.30471607976860665
+    }
+}

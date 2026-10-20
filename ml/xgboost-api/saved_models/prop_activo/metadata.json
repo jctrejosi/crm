@@ -1,0 +1,42 @@
+{
+    "model_name": "prop_activo",
+    "problem_type": "binary",
+    "target_column": "activo_30d",
+    "feature_columns": [
+        "frecuencia",
+        "monetario",
+        "ticket_promedio",
+        "categorias_distintas",
+        "segmento"
+    ],
+    "categorical_columns": {
+        "segmento": [
+            "0",
+            "1",
+            "2"
+        ]
+    },
+    "classes": [
+        "0",
+        "1"
+    ],
+    "n_classes": 2,
+    "created_at": "2026-08-31T09:14:45.815002",
+    "records": 15000,
+    "features": 5,
+    "test_size": 0.2,
+    "early_stopping": 19,
+    "metrics": {
+        "accuracy": 0.8393333333333334,
+        "auc": 0.9045807700460293,
+        "logloss": 0.42818474769592285
+    },
+    "shap_importance": {
+        "frecuencia": 0.3320421874523163,
+        "monetario": 0.06181567534804344,
+        "ticket_promedio": 0.08616676926612854,
+        "categorias_distintas": 0.049014266580343246,
+        "segmento": 0.6099467873573303
+    },
+    "training_time_seconds": 0.85
+}

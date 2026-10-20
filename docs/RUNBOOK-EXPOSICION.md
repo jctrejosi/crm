@@ -20,7 +20,8 @@ graph TD
     C -->| "Host: crm-api…" | B["Backend NestJS :3100 (loopback)"]
     B --> S["ia-service :8002 (loopback)"]
     B --> DB[("Postgres crm<br/>red interna")]
-    ML["Modelos ML (Astaroth, aparte)"] --> DB
+    B --> ML["Modelos ML (clustering/xgboost/uplift)<br/>loopback :8010-8012"]
+    ML --> ADB[("Postgres analytics<br/>red interna")]
 ```
 
 ---
@@ -33,13 +34,15 @@ graph TD
 | `30280`, `30281` | ⚠️ solo `127.0.0.1` | Caddy interno del CRM (puertos PROPIOS; los usa el edge) |
 | `3100` | ❌ | backend (loopback dentro del contenedor) |
 | `8002` | ❌ | ia-service (solo lo llama el backend) |
+| `8010`, `8011`, `8012` | ❌ | clustering / xgboost / uplift (loopback; los llama el backend) |
 | `5437`, `5436` | ⚠️ solo `127.0.0.1` del host | Postgres `crm` / `analytics` (herramientas y ML locales) |
 
 Cada proyecto tiene puertos propios (nada «genérico» que pueda chocar con IIS u
 otros servicios): CRM `30280/30281`, ecommerce `30180/30181`. Los publica solo
 en loopback; **nadie más los usa**.
 
-**Nunca** abras `3100`, `8002`, `5436`, `5437`, `30280` ni `30281` en el firewall.
+**Nunca** abras `3100`, `8002`, `8010`, `8011`, `8012`, `5436`, `5437`, `30280`
+ni `30281` en el firewall.
 
 ---
 
@@ -175,7 +178,7 @@ chmod 600 docker/.env
 | `JWT_SECRET` | `openssl rand -hex 32` |
 | `ADMIN_PASSWORD` **o** `ADMIN_PASSWORD_HASH` | contraseña del Basic Auth del panel (`caddy hash-password --plaintext '...'` para el hash) |
 | `IA_SERVICE_DEEPSEEK_API_KEY` (o `DEEPSEEK_API_KEY`) | clave de DeepSeek del ia-service |
-| `CLUSTERING_API_KEY` (si usas los ML) | debe coincidir con la de Astaroth (no dejar `change-me`) |
+| `CLUSTERING_API_KEY` | `ADMIN_KEY` de los servicios de `ml/` (no dejar `change-me`) |
 
 3. Revisa el plan completo (sin tocar nada): `node prod.js --dns`
 

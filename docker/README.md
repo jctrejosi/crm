@@ -1,7 +1,7 @@
 # `docker/` — despliegue del CRM en un contenedor de aplicación
 
-Imagen única con **backend NestJS + ia-service + panel web + Caddy**, más las
-dos bases Postgres del CRM en la red interna.
+Imagen única con **backend NestJS + ia-service + servicios de ML + panel web +
+Caddy**, más las dos bases Postgres del CRM en la red interna.
 
 **Los puertos publicados son PROPIOS y solo en loopback** (nada «genérico» que
 pueda chocar con IIS u otros servicios); el único que publica `80`/`443` es el
@@ -12,6 +12,9 @@ dominios y reenvía a cada proyecto por la red `shared_edge`.
 |---|---|---|---|
 | Backend NestJS | `127.0.0.1:3100` | ❌ | ❌ |
 | ia-service FastAPI | `127.0.0.1:8002` | ❌ | ❌ (lo llama el backend) |
+| clustering-api | `127.0.0.1:8010` | ❌ | ❌ (lo llama el backend) |
+| xgboost-api | `127.0.0.1:8011` | ❌ | ❌ (lo llama el backend) |
+| uplift-api | `127.0.0.1:8012` | ❌ | ❌ (lo llama el backend) |
 | Caddy interno (proxy + panel) | `:8080` / `:8443` | `127.0.0.1:30280` / `127.0.0.1:30281` | ❌ (lo alcanza el edge) |
 | Postgres `crm` | red `crm_internal` | `127.0.0.1:5437` | ❌ |
 | Postgres `analytics` | red `crm_internal` | `127.0.0.1:5436` | ❌ |
@@ -46,8 +49,8 @@ cd ../ecommerce/docker/edge && docker compose up -d
 
 | Archivo | Rol |
 |---|---|
-| `Dockerfile` | Multi-stage: backend + panel (Vite) + ia-service → runtime con Node, Python y Caddy. |
-| `entrypoint.sh` | Arranca backend/ia-service (127.0.0.1) y Caddy + genera el Caddyfile. Fail-closed sin `JWT_SECRET` ni contraseña del panel. |
+| `Dockerfile` | Multi-stage: backend + panel (Vite) + ia-service + 3 venvs de ML → runtime con Node, Python y Caddy. |
+| `entrypoint.sh` | Arranca backend/ia-service/clustering/xgboost/uplift (127.0.0.1) y Caddy + genera el Caddyfile. Fail-closed sin `JWT_SECRET` ni contraseña del panel. |
 | `gen-caddyfile.mjs` | Vhosts por dominio, cabeceras de seguridad, HSTS y Basic Auth del panel. En modo edge fija `X-Forwarded-Proto` y confía en el edge. |
 | `docker-compose.yml` | Aplicación + 2 Postgres, redes `edge`/`internal`/`shared_edge`, volúmenes, `cap_drop`, healthchecks. |
 | `.env.example` | Dominios (`HOST_*`), contraseña del panel, secretos, BD, DeepSeek y ML. |
@@ -62,6 +65,8 @@ cd ../ecommerce/docker/edge && docker compose up -d
 - **Rate limit** en `/auth/*` (backend, 15/60s por IP) y en `/generate|/interpret|/suggest-name` (ia-service, 20/60s); `TRUST_PROXY=loopback,uniquelocal` para resolver la IP real a través del edge.
 - `TLS=false` exige `ALLOW_INSECURE=true`; `MAX_REQUEST_BODY` acota el cuerpo; API de admin de Caddy desactivada.
 - Certificados persistentes y logs en volúmenes (`crm_caddy_data`, `crm_caddy_config`, `crm_app_logs`).
+- **Modelos ML** horneados en la imagen y persistidos en volúmenes
+  (`crm_ml_clustering_models`, `crm_ml_xgboost_models`, `crm_ml_uplift_models`).
 - Contenedor con `no-new-privileges` y `cap_drop: ALL`, rotación de logs de Docker.
 
 > Cambiar un dominio no requiere rebuild (edita `docker/.env` y `up -d`).

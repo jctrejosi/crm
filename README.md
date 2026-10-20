@@ -12,6 +12,7 @@ necesita.
 | `interface web/` | Panel React + Vite (campañas, dashboard). Gestor: **pnpm** | 8444 |
 | `backend/` | API NestJS propia del CRM (recortada del backend del ecommerce) | 3100 |
 | `ia-service/` | FastAPI + DeepSeek (contenido, nombre y explicación de campañas) | 8002 |
+| `ml/` | Modelos: `clustering-api` (8010) · `xgboost-api` (8011) · `uplift-api` (8012) | 8010 · 8011 · 8012 |
 | `db/` | Las **dos** bases Postgres del CRM (docker) | 5437 · 5436 |
 | `docs/` | Documentación del proyecto (estado actual, bases de datos, migración) | — |
 | `docker/` | Despliegue en **contenedor de aplicación** (backend + ia + panel + Caddy + BDs) | 30280 · 30281 (loopback) |
@@ -28,9 +29,11 @@ node dev.js --stop     # detiene lo levantado
 node dev.js --help
 ```
 
-Si faltan `node_modules` (backend/web) o `.venv` (ia), se instalan solos. Al
-levantar `db`, si el volumen de `analytics` está vacío se restaura desde
-`db/backups` (equivalente a `db/restore.sh`; sin bash, también en Windows).
+Si faltan `node_modules` (backend/web) o `.venv` (ia y `ml/`), se instalan solos.
+Requisitos: Node 20+, pnpm, Docker y **Python 3.13** (los modelos de `ml/` fijan
+versiones que exigen Python ≥3.12). Al levantar `db`, si el volumen de
+`analytics` está vacío se restaura desde `db/backups` (equivalente a
+`db/restore.sh`; sin bash, también en Windows).
 
 URLs: web <http://localhost:8444> · backend <http://localhost:3100> (docs en
 `/api/docs`) · ia-service <http://localhost:8002/docs>. Logs en `logs/*.log`.
@@ -121,12 +124,15 @@ que funciona igual en Windows (allí `bash`/`restore.sh` no están disponibles).
 
 ## Dependencias externas (no las levanta `dev.js`)
 
-- **ML Astaroth** (`/home/jk/Proyectos/seeds/Astaroth`): `clustering :8010`,
-  `xgboost :8011`, `uplift :8012`. Leen la BD `analytics` (`:5436`) y hacen la
-  segmentación, la propensión y el uplift.
 - **Servicio de SMS** (`seeds/Vassago/sms_service`): usado por el botón
   "Enviar prueba". Se configura en `interface web/.env` (`VITE_SMS_API_URL`).
-  Ojo: si XGBoost ocupa `:8011`, hay que correr el SMS en otro puerto.
+  Los modelos ocupan `8010–8012`, así que el SMS debe usar otro puerto (por
+  defecto `8015`).
+
+> Los modelos de ML (`clustering`, `xgboost`, `uplift`) vivían antes en el repo
+> `Astaroth`; ahora están en [`ml/`](./ml/README.md) y los levanta `dev.js` y el
+> contenedor de producción. Ya **no** hay un contenedor `mercaldas_astaroth_app`
+> del que depender.
 
 ## APIs que expone el backend del CRM
 
@@ -164,6 +170,10 @@ IA_SERVICE_URL=http://127.0.0.1:8002
 CLUSTERING_API_URL=http://127.0.0.1:8010
 XGBOOST_API_URL=http://127.0.0.1:8011
 UPLIFT_API_URL=http://127.0.0.1:8012
+CLUSTERING_API_KEY=change-me              # = ADMIN_KEY de los 3 servicios ML
+CLUSTERING_MODEL_NAME=seg_rfm_v1
+XGBOOST_PROPENSITY_MODEL=prop_activo
+UPLIFT_MODEL=uplift_dr_learner
 ```
 
 `ia-service/.env`: `IA_SERVICE_DEEPSEEK_API_KEY` (o `DEEPSEEK_API_KEY`).

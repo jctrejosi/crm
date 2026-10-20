@@ -1,0 +1,15 @@
+{
+    "model_name": "seg_k7",
+    "algorithm": "minibatch",
+    "k": 7,
+    "scale": true,
+    "random_state": 42,
+    "created_at": "2026-08-31T08:41:22.798682",
+    "n_samples": 81955,
+    "n_features": 5,
+    "training_time_seconds": 2.31,
+    "metrics": {
+        "inertia": 108171.51180206111,
+        "silhouette": 0.2809111722500334
+    }
+}
