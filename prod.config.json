@@ -6,9 +6,9 @@
   "acmeEmail": "admin@jcti.xyz",
   "tls": true,
   "hosts": {
-    "web": "crm.mercaldas.jcti.xyz",
-    "api": "crm-api.mercaldas.jcti.xyz"
+    "web": "crm.mercaldas.jcti.xyz"
   },
+  "apiBasePath": "/api",
   "smsApiUrl": "",
   "publicHttpPort": 80,
   "publicHttpsPort": 443,

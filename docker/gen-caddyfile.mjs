@@ -15,6 +15,9 @@
  * Variables:
  *   HOST_API           dominio del API (backend)                  [opcional]
  *   HOST_WEB           panel web (React + Vite)  → /srv/web
+ *   API_BASE_PATH      sirve el API bajo el MISMO host del panel (p. ej. /api).
+ *                      Si se define, no hace falta HOST_API ni un segundo DNS:
+ *                      `/api/*` se proxya al backend quitando el prefijo.
  *   TLS                 "true" (def.) | "false"  (false ⇒ HTTP, pensado para ir
  *                       detrás del edge compartido que hace TLS; requiere ALLOW_INSECURE)
  *   ACME_EMAIL         email para Let's Encrypt (avisos de expiración)
@@ -135,7 +138,32 @@ const apiBlock = `${headerBlock}${bodyLimit}\tencode zstd gzip
 		reverse_proxy ${BACKEND}${protoUp}
 	}`;
 
-const staticBlock = (dir, withAuth) => `${headerBlock}${withAuth ? basicAuth : ""}${bodyLimit}\tencode zstd gzip
+// API bajo el mismo host del panel (un solo DNS público):
+//   API_BASE_PATH=/api  →  /api/* se proxya al backend sin el prefijo.
+const API_BASE_PATH = (env.API_BASE_PATH || "").trim().replace(/\/+$/, "");
+
+const indent = (text, levels) =>
+  text
+    .split("\n")
+    .map((line) => (line ? "\t".repeat(levels) + line : line))
+    .join("\n");
+
+const sameHostStaticBlock = (dir, withAuth) => `${headerBlock}
+	handle ${API_BASE_PATH}/* {
+${indent(bodyLimit, 1)}${indent(`uri strip_prefix ${API_BASE_PATH}`, 2)}
+${indent(`reverse_proxy ${BACKEND}${protoUp}`, 2)}
+	}
+	handle {
+${indent(withAuth ? basicAuth : "", 1)}${indent(bodyLimit, 1)}${indent("encode zstd gzip", 2)}
+${indent(`root * ${dir}`, 2)}
+${indent(`try_files {path} /index.html`, 2)}
+${indent("file_server", 2)}
+	}`;
+
+const staticBlock = (dir, withAuth) =>
+  API_BASE_PATH
+    ? sameHostStaticBlock(dir, withAuth)
+    : `${headerBlock}${withAuth ? basicAuth : ""}${bodyLimit}\tencode zstd gzip
 	root * ${dir}
 	try_files {path} /index.html
 	file_server`;

@@ -153,6 +153,10 @@ function loadConfig() {
   cfg.acmeEmail = (cfg.acmeEmail || "").trim();
   cfg.dnsZone = (cfg.dnsZone || "").trim();
   cfg.smsApiUrl = (cfg.smsApiUrl || "").trim();
+  // API bajo el mismo host del panel (solo un DNS público). Ej.: "/api".
+  cfg.apiBasePath = (cfg.apiBasePath || "").trim();
+  if (cfg.apiBasePath && !cfg.apiBasePath.startsWith("/")) cfg.apiBasePath = "/" + cfg.apiBasePath;
+  cfg.apiBasePath = cfg.apiBasePath.replace(/\/+$/, "");
   // Modo de despliegue:
   //   "edge"   → 80/443 los publica el edge compartido (ecommerce/docker/edge/)
   //              y el contenedor escucha en loopback (puertos propios).
@@ -168,13 +172,21 @@ function loadConfig() {
 
   const missing = [];
   if (!cfg.hosts.web) missing.push("hosts.web (panel)");
-  if (!cfg.hosts.api) missing.push("hosts.api (backend)");
+  if (!cfg.hosts.api && !cfg.apiBasePath) {
+    missing.push('hosts.api (backend) o apiBasePath (p. ej. "/api")');
+  }
   if (!cfg.publicIp) missing.push("publicIp");
   if (missing.length) die(`✘ Faltan datos en ${rel(CONFIG_PATH)}: ${missing.join(", ")}`);
   return cfg;
 }
 
 const schemeOf = (cfg) => (cfg.tls ? "https" : "http");
+
+/** URL base del API: host propio o, en modo un-solo-host, `<panel><apiBasePath>`. */
+const apiBaseUrl = (cfg) =>
+  cfg.apiBasePath
+    ? `${schemeOf(cfg)}://${cfg.hosts.web}${cfg.apiBasePath}`
+    : `${schemeOf(cfg)}://${cfg.hosts.api}`;
 
 /** Nombre del registro dentro de la zona DNS (p. ej. crm.mercaldas en jcti.xyz). */
 function recordName(cfg, host) {
@@ -186,6 +198,14 @@ function recordName(cfg, host) {
 
 // ── Registros DNS + firewall ────────────────────────────────
 function dnsRows(cfg) {
+  if (cfg.apiBasePath) {
+    return [
+      {
+        host: cfg.hosts.web,
+        target: `panel + API (${cfg.apiBasePath}) (Caddy → /srv/web y backend :3100)`,
+      },
+    ];
+  }
   return [
     { host: cfg.hosts.web, target: "panel (Caddy → /srv/web)" },
     { host: cfg.hosts.api, target: "backend NestJS (3100) · ia-service interno (8002)" },
@@ -307,14 +327,15 @@ function syncEnvFile(cfg) {
   const edge = cfg.mode === "edge";
   const pairs = {
     HOST_WEB: cfg.hosts.web,
-    HOST_API: cfg.hosts.api,
+    HOST_API: cfg.apiBasePath ? "" : cfg.hosts.api,
+    API_BASE_PATH: cfg.apiBasePath,
     ACME_EMAIL: cfg.acmeEmail,
     // En modo edge el TLS lo termina el edge: el contenedor sirve HTTP en
     // loopback y el esquema público (https) se declara aparte.
     TLS: edge || !cfg.tls ? "false" : "true",
     ALLOW_INSECURE: edge || !cfg.tls ? "true" : "false",
     PUBLIC_SCHEME: scheme,
-    VITE_API_URL: `${scheme}://${cfg.hosts.api}`,
+    VITE_API_URL: apiBaseUrl(cfg),
     PUBLIC_HTTP_PORT: edge ? cfg.edgeHttpPort : String(cfg.publicHttpPort),
     PUBLIC_HTTPS_PORT: edge ? cfg.edgeHttpsPort : String(cfg.publicHttpsPort),
   };
@@ -373,7 +394,8 @@ function writeCaddyPreview(cfg) {
   const env = {
     ...process.env,
     HOST_WEB: cfg.hosts.web,
-    HOST_API: cfg.hosts.api,
+    HOST_API: cfg.apiBasePath ? "" : cfg.hosts.api,
+    API_BASE_PATH: cfg.apiBasePath,
     // En modo edge el Caddy interno sirve HTTP (el TLS lo hace el edge).
     TLS: cfg.mode === "edge" ? "false" : String(cfg.tls),
     ACME_EMAIL: cfg.acmeEmail,
@@ -397,16 +419,17 @@ function ensureDocker() {
 }
 
 function buildImage(cfg) {
+  const viteApi = apiBaseUrl(cfg);
   const args = [
     "compose",
     "-f",
     COMPOSE_FILE,
     "build",
     "--build-arg",
-    `VITE_API_URL=${schemeOf(cfg)}://${cfg.hosts.api}`,
+    `VITE_API_URL=${viteApi}`,
   ];
   if (cfg.smsApiUrl) args.push("--build-arg", `VITE_SMS_API_URL=${cfg.smsApiUrl}`);
-  console.log(`\n==> Construyendo la imagen (VITE_API_URL=${schemeOf(cfg)}://${cfg.hosts.api})…`);
+  console.log(`\n==> Construyendo la imagen (VITE_API_URL=${viteApi})…`);
   if (!run("docker", args)) die("✘ Falló la construcción de la imagen.");
 }
 
@@ -481,7 +504,7 @@ async function main() {
     console.log(`  ${C.ok}2)${C.reset} DNS OK: el certificado se emite automáticamente al primer acceso.`);
   }
   console.log(`  3) Verifica en el navegador: ${scheme}://${cfg.hosts.web} (pedirá la clave del panel)`);
-  console.log(`     y el API: ${scheme}://${cfg.hosts.api}/api-status`);
+  console.log(`     y el API: ${apiBaseUrl(cfg)}/api-status`);
   console.log("  4) Comprueba desde fuera que los puertos internos están cerrados:");
   console.log(`     ${cfg.publicIp}:3100 · :8002 · :5436 · :5437 · :30280 (deben fallar o rechazar)`);
   console.log("  5) Datos: si necesitas cargar la BD, usa crm/db/restore.sh (analytics) o");
