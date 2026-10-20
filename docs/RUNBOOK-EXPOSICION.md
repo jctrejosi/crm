@@ -14,7 +14,7 @@ en la red interna, detrás de un **edge compartido** que es el único que public
 graph TD
     I["Internet"] -->| "80 / 443" | F["Firewall: proveedor + Windows"]
     F --> E["EDGE compartido (Caddy)<br/>TLS Let's Encrypt"]
-    E -->| "crm.jcti.xyz" | C["Caddy del CRM (contenedor)<br/>127.0.0.1:30280"]
+    E -->| "crm.mercaldas.jcti.xyz" | C["Caddy del CRM (contenedor)<br/>127.0.0.1:30280"]
     E -->| "mercaldas.jcti.xyz, api…" | EC["Contenedor ecommerce<br/>127.0.0.1:30180"]
     C -->| "Host: crm…" | W["Panel /srv/web"]
     C -->| "Host: crm-api…" | B["Backend NestJS :3100 (loopback)"]
@@ -76,19 +76,20 @@ que **el DNS va primero**: si no resuelve, no habrá HTTPS.
 
 | Tipo | Nombre (en la zona `jcti.xyz`) | Valor | TTL |
 |---|---|---|---|
-| A | `crm` | `170.254.229.68` | 600 |
-| A | `crm-api` | `170.254.229.68` | 600 |
+| A | `crm.mercaldas` | `170.254.229.68` | 600 |
+| A | `crm-api.mercaldas` | `170.254.229.68` | 600 |
 
 En GoDaddy: **Mi dominio → DNS → Administrar DNS → Agregar registro**
-(tipo `A`, nombre `crm` — GoDaddy añade `.jcti.xyz` solo).
+(tipo `A`, nombre `crm.mercaldas` — GoDaddy añade `.jcti.xyz` solo; el nombre
+lleva un punto, así que el host final es `crm.mercaldas.jcti.xyz`).
 Borra cualquier `A`/`AAAA` previa con el mismo nombre (un `AAAA` viejo rompe la
 validación: el cliente prefiere IPv6).
 
 Comprueba la propagación (desde tu PC, no desde el VPS):
 
 ```powershell
-nslookup crm.jcti.xyz      # debe devolver 170.254.229.68
-nslookup crm-api.jcti.xyz  # idem
+nslookup crm.mercaldas.jcti.xyz      # debe devolver 170.254.229.68
+nslookup crm-api.mercaldas.jcti.xyz  # idem
 ```
 
 > `node prod.js` vuelve a verificar esto al arrancar y avisa si aún no apunta.
@@ -147,7 +148,7 @@ networkingMode=mirrored
   "dnsZone": "jcti.xyz",
   "acmeEmail": "admin@jcti.xyz",
   "tls": true,
-  "hosts": { "web": "crm.jcti.xyz", "api": "crm-api.jcti.xyz" },
+  "hosts": { "web": "crm.mercaldas.jcti.xyz", "api": "crm-api.mercaldas.jcti.xyz" },
   "smsApiUrl": "",
   "publicHttpPort": 80,
   "publicHttpsPort": 443
@@ -194,7 +195,7 @@ chmod 600 docker/.env
 node prod.js                 # sincroniza docker/.env, construye y levanta
 # o a mano:
 docker compose -f docker/docker-compose.yml build \
-  --build-arg VITE_API_URL=https://crm-api.jcti.xyz
+  --build-arg VITE_API_URL=https://crm-api.mercaldas.jcti.xyz
 docker compose -f docker/docker-compose.yml up -d
 
 # Y después el EDGE compartido (publica 80/443 y emite los certificados):
@@ -202,7 +203,7 @@ cd ../ecommerce/docker/edge && docker compose up -d
 ```
 
 - La primera construcción tarda (instala dependencias de Node y Python).
-- Sigue los logs: `node prod.js --logs` (o `docker compose ... logs -f app`).
+- Sigue los logs: `node prod.js --logs` (o `docker compose ... logs -f crm-app`).
 - Señales de que todo va bien:
   - **edge**: `certificate obtained successfully` para los dos dominios.
   - `backend`: `✅ Database connected successfully` y `🛡️ Rate limit activo`.
@@ -228,16 +229,16 @@ curl -sS -m 3 http://170.254.229.68:8002/health || echo "OK: 8002 cerrado"
 curl -sS -m 3 http://170.254.229.68:5437/ || echo "OK: 5437 cerrado"
 
 # 3. Panel y API (TLS)
-curl -I https://crm.jcti.xyz/       # 401 (Basic Auth del panel)
-curl -I https://crm-api.jcti.xyz/api-status
+curl -I https://crm.mercaldas.jcti.xyz/       # 401 (Basic Auth del panel)
+curl -I https://crm-api.mercaldas.jcti.xyz/api-status
 
 # 4. Rate limit del login (debe aparecer algún 429)
 for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18; do curl -s -o /dev/null -w "%{http_code} " \
-  -X POST https://crm-api.jcti.xyz/auth/login \
+  -X POST https://crm-api.mercaldas.jcti.xyz/auth/login \
   -H 'Content-Type: application/json' -d '{"identifier":"x","password":"y"}'; done; echo
 ```
 
-Y en el navegador: abre `https://crm.jcti.xyz` (te pedirá la clave del
+Y en el navegador: abre `https://crm.mercaldas.jcti.xyz` (te pedirá la clave del
 panel y luego el login del CRM) y verifica que el candado TLS es válido.
 
 ---
@@ -326,7 +327,7 @@ Si el CRM va en su propio servidor: `mode: "direct"` → el contenedor publica
 | El certificado no se emite | DNS no apunta ahí, o el 80 está ocupado | espera la propagación; libera 80; Caddy reintenta solo |
 | El contenedor reinicia en bucle | falta `JWT_SECRET` o `ADMIN_PASSWORD` | `node prod.js --logs`; completa `docker/.env` |
 | El panel carga pero el API falla | `VITE_API_URL` mal horneado o CORS | corrige `hosts.api` y `node prod.js --build` |
-| `502` en el API | backend caído o BD no conecta | `docker compose logs app`; revisa `DATABASE_URL`/`DB_SSL` |
+| `502` en el API | backend caído o BD no conecta | `docker compose logs crm-app`; revisa `DATABASE_URL`/`DB_SSL` |
 | `429` en pruebas | rate limit del login | espera 60 s (o sube el límite en el middleware) |
 | El panel pide Basic Auth en bucle | contraseña mal copiada (o hash inválido) | regenera `ADMIN_PASSWORD_HASH` con `caddy hash-password` |
 | Campos vacíos en el panel | falta cargar datos | §7 (restore/migrate) |

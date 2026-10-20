@@ -412,7 +412,7 @@ function buildImage(cfg) {
 
 function status() {
   compose(["ps"]);
-  const port = capture("docker", ["port", "mercaldas-crm-app-1"]);
+  const port = capture("docker", ["port", "mercaldas_crm_app"]);
   if (port) {
     console.log(`\n${C.dim}Puertos publicados por el contenedor de aplicación:${C.reset}`);
     console.log(port);
@@ -445,7 +445,7 @@ async function main() {
     console.log("✅ Detenido.");
     return;
   }
-  if (LOGS) return void compose(["logs", "-f", "--tail", "80", "app"]);
+  if (LOGS) return void compose(["logs", "-f", "--tail", "80", "crm-app"]);
   if (STATUS) return status();
 
   warnPortConflicts(cfg);

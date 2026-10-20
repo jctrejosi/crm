@@ -6,8 +6,8 @@
   "acmeEmail": "admin@jcti.xyz",
   "tls": true,
   "hosts": {
-    "web": "crm.jcti.xyz",
-    "api": "crm-api.jcti.xyz"
+    "web": "crm.mercaldas.jcti.xyz",
+    "api": "crm-api.mercaldas.jcti.xyz"
   },
   "smsApiUrl": "",
   "publicHttpPort": 80,

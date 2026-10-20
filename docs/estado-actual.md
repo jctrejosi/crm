@@ -233,12 +233,11 @@ El CRM ya corre contenedorizado en el VPS compartido con el ecommerce.
 
 | Host | Uso | Estado |
 |---|---|---|
-| `crm.jcti.xyz` | panel (Basic Auth + JWT) | falta registro A en GoDaddy |
-| `crm-api.jcti.xyz` | API NestJS | falta registro A en GoDaddy |
+| `crm.mercaldas.jcti.xyz` | panel (Basic Auth + JWT) | A → `170.254.229.68` ya creado |
+| `crm-api.mercaldas.jcti.xyz` | API NestJS | **falta** el registro A en GoDaddy |
 
-Sin DNS no hay certificado: Caddy reintenta solo y lo emite cuando los
-registros apunten a la IP. El resto del despliegue ya está validado por
-loopback.
+Sin el registro del API el panel carga pero sus peticiones fallan. El DNS del
+panel ya resuelve; el certificado de ese host puede emitirse ya.
 
 **Contenedores**
 
@@ -250,8 +249,11 @@ loopback.
 | `edge_caddy` (del ecommerce) | `0.0.0.0:80` y `:443` | TLS y proxy a `mercaldas_crm_app:8080` |
 
 El bloque del CRM está activo en
-`../ecommerce/docker/edge/Caddyfile` (`crm.jcti.xyz, crm-api.jcti.xyz`) y el
-contenedor comparte la red `shared_edge` con `edge_caddy`.
+`../ecommerce/docker/edge/Caddyfile` (`crm.mercaldas.jcti.xyz,
+crm-api.mercaldas.jcti.xyz`) y el contenedor comparte la red `shared_edge` con
+`edge_caddy`. El servicio de Compose se llama `crm-app` (contenedor
+`mercaldas_crm_app`) para no colisionar con el alias `app` del ecommerce en esa
+red.
 
 **Datos cargados**
 
@@ -266,7 +268,7 @@ contenedor comparte la red `shared_edge` con `edge_caddy`.
 - `curl` interno contra el Caddy del contenedor: panel `401` sin credenciales y
   `200` con Basic Auth; `GET /api-status` → `{"status":"ok"}` con la BD
   conectada.
-- Bundle del panel apunta a `https://crm-api.jcti.xyz`.
+- Bundle del panel apunta a `https://crm-api.mercaldas.jcti.xyz`.
 - Puertos internos (3100, 8002, 8010–8012, 5436, 5437) **no** publicados.
 
 > Runbook completo: [RUNBOOK-EXPOSICION.md](./RUNBOOK-EXPOSICION.md).

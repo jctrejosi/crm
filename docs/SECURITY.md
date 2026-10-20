@@ -284,7 +284,7 @@ algún `429`.
 1. **Contener**: `node prod.js --stop` (o `docker compose -f docker/docker-compose.yml down`).
 2. **Rotar** todos los secretos de `docker/.env` (JWT, contraseña del panel, BD,
    DeepSeek, clustering) y las credenciales de los usuarios del CRM.
-3. **Revisar** `docker compose logs app` y los logs del host (accesos, 401/429).
+3. **Revisar** `docker compose logs crm-app` y los logs del host (accesos, 401/429).
 4. **Restaurar** desde el último backup verificado si hubo manipulación de datos.
 5. **Parchear** la causa (imagen, dependencias, configuración) y volver a
    desplegar; dejar constancia en este documento si cambia el modelo.

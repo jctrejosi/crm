@@ -34,7 +34,7 @@ docker compose -f docker/docker-compose.yml build \
   --build-arg VITE_API_URL=https://crm-api.tudominio.com
 
 docker compose -f docker/docker-compose.yml up -d
-docker compose -f docker/docker-compose.yml logs -f app
+docker compose -f docker/docker-compose.yml logs -f crm-app
 
 # Edge compartido (publica 80/443 y hace TLS; requiere los dominios en el DNS)
 cd ../ecommerce/docker/edge && docker compose up -d
