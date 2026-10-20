@@ -35,9 +35,10 @@ class ModelRegistry:
 
         return sorted(
             models,
-            key=lambda model: model.get(
-                "trained_at",
-                ""
+            key=lambda model: (
+                model.get("trained_at")
+                or model.get("created_at")
+                or ""
             ),
             reverse=True
         )
@@ -112,17 +113,17 @@ class ModelRegistry:
                 metadata["model_name"],
 
             "target_column":
-                metadata["target_column"],
+                metadata.get("target_column"),
 
             "records":
-                metadata["records"],
+                metadata.get("records"),
 
             "features":
-                metadata["features"],
+                metadata.get("features"),
 
             "lags":
-                metadata["lags"],
+                metadata.get("lags"),
 
             "r2":
-                metadata["r2"]
+                metadata.get("r2")
         }
