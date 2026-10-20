@@ -2,3 +2,8 @@
 # El dump COMPLETO (~350 MB) no se versiona; sí sus PARTES troceadas
 # (analytics_<fecha>.backup.part-NNN, 45 MB c/u) y el sha256 del volcado completo.
 backups/*.backup
+
+# Copias crudas del POS legacy (Publidata / ADS), ~15 GB cada una. Solo sirven
+# para reconstruir la réplica `analytics`; nunca se versionan.
+/ADDT/
+/ADD_ANALITICA/
