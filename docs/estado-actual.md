@@ -273,6 +273,28 @@ con el alias `app` del ecommerce en esa red.
 - Bundle del panel apunta a `https://crm.mercaldas.jcti.xyz/api`.
 - Puertos internos (3100, 8002, 8010–8012, 5436, 5437) **no** publicados.
 
+**Verificación final (2026-10-20, extremo a extremo)**
+
+- Panel por HTTPS: `/` y `/login` → `200`; bundle JS/CSS → `200`; sin prompt
+  de Basic Auth. CSP permite Google Fonts; HSTS activo.
+- Login propio: `POST /api/auth/login` → `200`; `GET /api/auth/me` → `200`.
+  Rutas `/admin/*` sin sesión → `401` (guard JWT global).
+- `GET /api/admin/campaigns` → `200`; `GET /api/admin/dashboard/stats` →
+  `200`; `GET /api/admin/campaigns/clients/filter-options` → `200`.
+- `POST /api/admin/campaigns/clients/score` → `200` con **81.997** clientes
+  puntuados (propensión + uplift), lo que ejercita xgboost, uplift y la BD
+  `analytics` de punta a punta.
+- Servicios internos dentro del contenedor: backend `:3100/api-status` OK
+  (BD conectada), ia-service `:8002/health` OK con
+  `api_key_configured: true`, clustering `:8010` (7 modelos), xgboost `:8011`
+  (12 modelos, `POST /propensity/predict` responde) y uplift `:8012`
+  (4 modelos).
+- Exposición: desde Internet solo `80`/`443` (edge Caddy). `3100, 8002,
+  8010–8012, 5436, 5437, 30280, 30281` cerrados; los tres contenedores del
+  CRM están `healthy`, con `restarts=0` y política `unless-stopped`.
+- **Pendiente operativo**: el usuario `admin@dsi.com.co` tiene una contraseña
+  temporal; debe cambiarla en el primer ingreso.
+
 > Runbook completo: [RUNBOOK-EXPOSICION.md](./RUNBOOK-EXPOSICION.md).
 
 ## 10. Documentación
