@@ -10,6 +10,17 @@
 # comprueba el sha256 del volcado completo. Al final verifica conteos.
 set -euo pipefail
 
+# Git Bash (MSYS) reescribe `/tmp/...` como `C:/Users/...` antes de pasarlo a
+# Docker, así que el contenedor acaba leyendo una ruta inexistente y la
+# restauración "termina bien" sin restaurar nada. En Linux no tiene efecto.
+export MSYS_NO_PATHCONV=1
+
+# Con MSYS_NO_PATHCONV=1, las rutas de HOST para `docker cp` hay que pasarlas
+# explícitamente en formato Windows. En Linux devuelve la misma ruta.
+to_host_path() {
+  if command -v cygpath >/dev/null 2>&1; then cygpath -w "$1"; else printf '%s' "$1"; fi
+}
+
 CONTAINER="${DB_CONTAINER:-analytics_postgres}"
 DB="${DB_NAME:-analytics}"
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -79,7 +90,7 @@ fi
 
 # ── 4. Copiar y restaurar ─────────────────────────────────────────────────────
 echo "→ Copiando al contenedor $CONTAINER..."
-docker cp "$WORK" "$CONTAINER:$CTMP"
+docker cp "$(to_host_path "$WORK")" "$CONTAINER:$CTMP"
 rm -f "$TMP"
 
 echo "→ Restaurando en la BD $DB (pg_restore)..."
@@ -93,10 +104,20 @@ echo "  pg_restore exit=$RC (los avisos benignos no impiden la restauración)"
 
 # ── 5. Verificación de conteos ────────────────────────────────────────────────
 echo "→ Verificando conteos..."
-docker exec "$CONTAINER" psql -U postgres -d "$DB" -tAc \
+COUNTS="$(docker exec "$CONTAINER" psql -U postgres -d "$DB" -tAc \
   "SELECT 'vw_rfm_clientes=' || count(*) FROM analytics.vw_rfm_clientes
    UNION ALL SELECT 'cliente_segmento=' || count(*) FROM analytics.cliente_segmento
    UNION ALL SELECT 'pos.clientes=' || count(*) FROM pos.clientes
-   UNION ALL SELECT 'pos.venta_lineas=' || count(*) FROM pos.venta_lineas"
+   UNION ALL SELECT 'pos.venta_lineas=' || count(*) FROM pos.venta_lineas")"
+echo "$COUNTS"
+
+# Sin esto, un pg_restore que no hizo nada (ruta mal convertida, dump vacío)
+# pasaría por bueno. La vista RFM es el indicador más claro.
+RFM="$(printf '%s\n' "$COUNTS" | tr -d '\r' | sed -n 's/^vw_rfm_clientes=//p')"
+if [ -z "$RFM" ] || ! [ "$RFM" -ge 1 ] 2>/dev/null; then
+  echo "✘ La restauración no dejó datos (vw_rfm_clientes=${RFM:-?})." >&2
+  echo "  Revisa que el dump llegó al contenedor y que pg_restore no falló." >&2
+  exit 1
+fi
 
 echo "✓ Restauración terminada."

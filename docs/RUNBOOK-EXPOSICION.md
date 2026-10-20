@@ -14,7 +14,7 @@ en la red interna, detrás de un **edge compartido** que es el único que public
 graph TD
     I["Internet"] -->| "80 / 443" | F["Firewall: proveedor + Windows"]
     F --> E["EDGE compartido (Caddy)<br/>TLS Let's Encrypt"]
-    E -->| "crm.mercaldas.jcti.xyz" | C["Caddy del CRM (contenedor)<br/>127.0.0.1:30280"]
+    E -->| "crm.jcti.xyz" | C["Caddy del CRM (contenedor)<br/>127.0.0.1:30280"]
     E -->| "mercaldas.jcti.xyz, api…" | EC["Contenedor ecommerce<br/>127.0.0.1:30180"]
     C -->| "Host: crm…" | W["Panel /srv/web"]
     C -->| "Host: crm-api…" | B["Backend NestJS :3100 (loopback)"]
@@ -57,7 +57,8 @@ docker info                # el daemon debe responder
 node --version             # para el lanzador prod.js (opcional: puedes usar docker a mano)
 ```
 
-- Copia del repo CRM en el servidor (p. ej. `C:\crm`).
+- Copia del repo CRM en el servidor. En el VPS actual:
+  `C:\Users\Desarrolo4\Documents\crm`, rama **`prod`**.
 - Acceso al panel DNS de GoDaddy de `jcti.xyz`.
 - Acceso al panel de red del proveedor del VPS (security group).
 - **El edge compartido** (`../ecommerce/docker/edge/`): es quien publica 80/443 y
@@ -75,19 +76,19 @@ que **el DNS va primero**: si no resuelve, no habrá HTTPS.
 
 | Tipo | Nombre (en la zona `jcti.xyz`) | Valor | TTL |
 |---|---|---|---|
-| A | `crm.mercaldas` | `170.254.229.68` | 600 |
-| A | `crm-api.mercaldas` | `170.254.229.68` | 600 |
+| A | `crm` | `170.254.229.68` | 600 |
+| A | `crm-api` | `170.254.229.68` | 600 |
 
 En GoDaddy: **Mi dominio → DNS → Administrar DNS → Agregar registro**
-(tipo `A`, nombre `crm.mercaldas` — GoDaddy añade `.jcti.xyz` solo).
+(tipo `A`, nombre `crm` — GoDaddy añade `.jcti.xyz` solo).
 Borra cualquier `A`/`AAAA` previa con el mismo nombre (un `AAAA` viejo rompe la
 validación: el cliente prefiere IPv6).
 
 Comprueba la propagación (desde tu PC, no desde el VPS):
 
 ```powershell
-nslookup crm.mercaldas.jcti.xyz      # debe devolver 170.254.229.68
-nslookup crm-api.mercaldas.jcti.xyz  # idem
+nslookup crm.jcti.xyz      # debe devolver 170.254.229.68
+nslookup crm-api.jcti.xyz  # idem
 ```
 
 > `node prod.js` vuelve a verificar esto al arrancar y avisa si aún no apunta.
@@ -141,12 +142,12 @@ networkingMode=mirrored
 
 ```json
 {
-  "baseDomain": "mercaldas.jcti.xyz",
+  "baseDomain": "jcti.xyz",
   "publicIp": "170.254.229.68",
   "dnsZone": "jcti.xyz",
   "acmeEmail": "admin@jcti.xyz",
   "tls": true,
-  "hosts": { "web": "crm.mercaldas.jcti.xyz", "api": "crm-api.mercaldas.jcti.xyz" },
+  "hosts": { "web": "crm.jcti.xyz", "api": "crm-api.jcti.xyz" },
   "smsApiUrl": "",
   "publicHttpPort": 80,
   "publicHttpsPort": 443
@@ -193,7 +194,7 @@ chmod 600 docker/.env
 node prod.js                 # sincroniza docker/.env, construye y levanta
 # o a mano:
 docker compose -f docker/docker-compose.yml build \
-  --build-arg VITE_API_URL=https://crm-api.mercaldas.jcti.xyz
+  --build-arg VITE_API_URL=https://crm-api.jcti.xyz
 docker compose -f docker/docker-compose.yml up -d
 
 # Y después el EDGE compartido (publica 80/443 y emite los certificados):
@@ -227,16 +228,16 @@ curl -sS -m 3 http://170.254.229.68:8002/health || echo "OK: 8002 cerrado"
 curl -sS -m 3 http://170.254.229.68:5437/ || echo "OK: 5437 cerrado"
 
 # 3. Panel y API (TLS)
-curl -I https://crm.mercaldas.jcti.xyz/       # 401 (Basic Auth del panel)
-curl -I https://crm-api.mercaldas.jcti.xyz/api-status
+curl -I https://crm.jcti.xyz/       # 401 (Basic Auth del panel)
+curl -I https://crm-api.jcti.xyz/api-status
 
 # 4. Rate limit del login (debe aparecer algún 429)
 for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18; do curl -s -o /dev/null -w "%{http_code} " \
-  -X POST https://crm-api.mercaldas.jcti.xyz/auth/login \
+  -X POST https://crm-api.jcti.xyz/auth/login \
   -H 'Content-Type: application/json' -d '{"identifier":"x","password":"y"}'; done; echo
 ```
 
-Y en el navegador: abre `https://crm.mercaldas.jcti.xyz` (te pedirá la clave del
+Y en el navegador: abre `https://crm.jcti.xyz` (te pedirá la clave del
 panel y luego el login del CRM) y verifica que el candado TLS es válido.
 
 ---
@@ -257,6 +258,13 @@ bash db/migrate-from-ecommerce.sh   # SRC_CONTAINER=ecommerce_postgres por defec
 > Alternativa puntual: `psql` desde el host contra `127.0.0.1:5437` (BD `crm`) y
 > `127.0.0.1:5436` (BD `analytics`), usuario `postgres`.
 > Al arrancar, el backend aplica solo las columnas que falten (`sync-schema`).
+>
+> **Windows/Git Bash**: los scripts exportan `MSYS_NO_PATHCONV=1` y convierten
+> con `cygpath` la ruta de host del `docker cp`. Sin eso, MSYS reescribe
+> `/tmp/...` como `C:/Users/...`, el contenedor no encuentra el dump y
+> `pg_restore` “termina bien” sin restaurar nada. `migrate-from-ecommerce.sh`
+> genera el dump en un contenedor efímero porque el stdout de `docker exec` se
+> pierde en Docker Desktop para Windows.
 
 ---
 
@@ -325,6 +333,9 @@ Si el CRM va en su propio servidor: `mode: "direct"` → el contenedor publica
 | `port is already allocated` al levantar | otro proceso usa 80/443 (IIS/HTTP.sys) o los puertos loopback ya están cogidos | libera el puerto; revisa `node prod.js --status` |
 | El panel/API da `502` a través del edge | el contenedor del proyecto no está arriba, o falta ese dominio en su `.env` (`HOST_*`) | `docker ps` y `HOST_*` del proyecto |
 | El rate limit bloquea a todos los clientes a la vez | el backend no resuelve la IP real | deja `TRUST_PROXY=loopback,uniquelocal` y `PUBLIC_SCHEME=https` (los pone prod.js / el compose) |
+| `docker exec …` no imprime nada por SSH (Windows) | Docker Desktop no adjunta stdout/stderr de contenedores a una sesión SSH no interactiva | usa `docker logs <contenedor>`, `docker cp` de un archivo, o `cmd /v:on /c "… & echo !ERRORLEVEL!"` para el código de salida |
+| `pg_dump`/`pg_restore` vía `docker exec` “termina” sin escribir nada | misma limitación de adjuntar stdio en Windows + conversión de rutas de Git Bash | ejecuta el cliente en un contenedor efímero (`docker run`) y copia el dump con `docker cp`; los scripts de `db/` ya lo hacen |
+| `pg_restore` exit 0 pero la BD sigue vacía | ruta `/tmp/...` convertida por MSYS a `C:/Users/...` | confirma `MSYS_NO_PATHCONV=1` (los scripts ya lo exportan) |
 
 ---
 

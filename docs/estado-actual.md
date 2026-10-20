@@ -1,6 +1,6 @@
 # Estado actual del proyecto
 
-> Fotografía del CRM de Mercaldas a **2026-10-08**. Documenta *qué hay hoy*:
+> Fotografía del CRM de Mercaldas a **2026-10-20**. Documenta *qué hay hoy*:
 > arquitectura, servicios, datos, configuración y deuda técnica conocida.
 > Para el detalle de cada área ver el [índice de documentación](./README.md).
 
@@ -218,6 +218,59 @@ en el repo `Astaroth`; ahora se despliegan **dentro del contenedor del CRM**.
 - **Refs obsoletas** en docs y comentarios a la antigua carpeta `db-campaigns/`
   y a `db/docker/` (del ecommerce), ya corregidas parcialmente en `docs/`.
 
-## 9. Documentación
+## 9. Despliegue en producción (estado 2026-10-20)
+
+El CRM ya corre contenedorizado en el VPS compartido con el ecommerce.
+
+**Servidor**
+
+- Windows Server `WIN-U4554GS26I9`, usuario `Desarrolo4`, Docker con
+  **Linux containers**.
+- Repo en `C:\Users\Desarrolo4\Documents\crm`, rama **`prod`**.
+- IP pública `170.254.229.68`.
+
+**Dominios**
+
+| Host | Uso | Estado |
+|---|---|---|
+| `crm.jcti.xyz` | panel (Basic Auth + JWT) | falta registro A en GoDaddy |
+| `crm-api.jcti.xyz` | API NestJS | falta registro A en GoDaddy |
+
+Sin DNS no hay certificado: Caddy reintenta solo y lo emite cuando los
+registros apunten a la IP. El resto del despliegue ya está validado por
+loopback.
+
+**Contenedores**
+
+| Contenedor | Publica | Contenido |
+|---|---|---|
+| `mercaldas_crm_app` | solo `127.0.0.1:30280` / `:30281` | backend :3100, ia-service :8002, clustering :8010, xgboost :8011, uplift :8012 y Caddy interno :8080/:8443 |
+| `crm_postgres` | nada (red interna) | BD operativa `crm` |
+| `analytics_postgres` | nada (red interna) | réplica `analytics` |
+| `edge_caddy` (del ecommerce) | `0.0.0.0:80` y `:443` | TLS y proxy a `mercaldas_crm_app:8080` |
+
+El bloque del CRM está activo en
+`../ecommerce/docker/edge/Caddyfile` (`crm.jcti.xyz, crm-api.jcti.xyz`) y el
+contenedor comparte la red `shared_edge` con `edge_caddy`.
+
+**Datos cargados**
+
+- `crm` (operativa): migrada desde `ecommerce` → **101 tablas**, 21.613
+  productos, 44 clientes, 98 pedidos, 10 campañas, 9 usuarios.
+- `analytics`: restaurada desde `db/backups` → `vw_rfm_clientes` 81.997,
+  `cliente_segmento` 81.955, `pos.clientes` 184.660, `pos.venta_lineas`
+  9.998.703.
+
+**Verificación hecha**
+
+- `curl` interno contra el Caddy del contenedor: panel `401` sin credenciales y
+  `200` con Basic Auth; `GET /api-status` → `{"status":"ok"}` con la BD
+  conectada.
+- Bundle del panel apunta a `https://crm-api.jcti.xyz`.
+- Puertos internos (3100, 8002, 8010–8012, 5436, 5437) **no** publicados.
+
+> Runbook completo: [RUNBOOK-EXPOSICION.md](./RUNBOOK-EXPOSICION.md).
+
+## 10. Documentación
 
 Índice completo en [docs/README.md](./README.md).
