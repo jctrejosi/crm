@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; script-src 'unsafe-inline';"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ecommerce CRM · Sin conexión</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f6f5f2;
+        --card: #ffffff;
+        --text: #1f2328;
+        --muted: #61676f;
+        --border: #e5e3de;
+        --accent: #d97706;
+        --accent-hover: #b45309;
+        --accent-text: #ffffff;
+        --ghost: #f1efeb;
+        --ghost-hover: #e7e3dc;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #141519;
+          --card: #1b1d22;
+          --text: #f5f6f8;
+          --muted: #a6adb8;
+          --border: #2b2f36;
+          --accent: #f59e0b;
+          --accent-hover: #fbbf24;
+          --accent-text: #1b1300;
+          --ghost: #25282f;
+          --ghost-hover: #2f333b;
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 32px;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+      }
+
+      main {
+        width: min(460px, 100%);
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 36px 34px 30px;
+        box-shadow: 0 24px 60px rgb(15 23 42 / 12%);
+        text-align: center;
+      }
+
+      img {
+        width: 76px;
+        height: 76px;
+        border-radius: 18px;
+        object-fit: contain;
+        margin-bottom: 18px;
+      }
+
+      h1 {
+        margin: 0 0 10px;
+        font-size: 22px;
+        line-height: 1.25;
+        letter-spacing: -0.01em;
+      }
+
+      p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 14.5px;
+        line-height: 1.6;
+      }
+
+      .url {
+        margin-top: 18px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: var(--ghost);
+        color: var(--text);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px;
+        word-break: break-all;
+      }
+
+      .hint {
+        margin-top: 14px;
+        font-size: 12.5px;
+      }
+
+      .actions {
+        margin-top: 26px;
+        display: grid;
+        gap: 10px;
+      }
+
+      button {
+        appearance: none;
+        border: 0;
+        border-radius: 11px;
+        padding: 12px 16px;
+        font: inherit;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition:
+          background-color 120ms ease,
+          transform 120ms ease;
+      }
+
+      button:active {
+        transform: translateY(1px);
+      }
+
+      .primary {
+        background: var(--accent);
+        color: var(--accent-text);
+      }
+
+      .primary:hover {
+        background: var(--accent-hover);
+      }
+
+      .secondary {
+        background: var(--ghost);
+        color: var(--text);
+      }
+
+      .secondary:hover {
+        background: var(--ghost-hover);
+      }
+
+      .meta {
+        margin-top: 22px;
+        font-size: 11.5px;
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="build/icon.png" alt="Ecommerce" />
+      <h1>No se pudo conectar con el panel</h1>
+      <p>
+        Revisa tu conexión a internet o la red de la empresa. La aplicación
+        reintentará automáticamente en
+        <strong id="seconds">12</strong> segundos.
+      </p>
+
+      <div class="url" id="target">https://crm.example.com</div>
+
+      <div class="actions">
+        <button class="primary" id="retry">Reintentar ahora</button>
+        <button class="secondary" id="browser">Abrir en el navegador</button>
+        <button class="secondary" id="quit">Cerrar aplicación</button>
+      </div>
+
+      <p class="hint">
+        Si el problema continúa, contacta al área de sistemas.
+      </p>
+      <div class="meta" id="detail"></div>
+    </main>
+
+    <script>
+      const params = new URLSearchParams(location.search);
+      const raw = params.get('url') || '';
+      const code = params.get('code') || '';
+      const description = params.get('description') || '';
+
+      let target = 'https://crm.example.com';
+      try {
+        const parsed = new URL(raw);
+        if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+          target = parsed.href;
+        }
+      } catch {
+        /* se usa la URL por defecto */
+      }
+
+      document.getElementById('target').textContent = target;
+      if (code || description) {
+        document.getElementById('detail').textContent = [code, description]
+          .filter(Boolean)
+          .join(' · ');
+      }
+
+      const retry = () => location.replace(target);
+      document.getElementById('retry').addEventListener('click', retry);
+      document
+        .getElementById('browser')
+        .addEventListener('click', () => window.open(target, '_blank'));
+      document
+        .getElementById('quit')
+        .addEventListener('click', () => window.close());
+
+      let remaining = 12;
+      const label = document.getElementById('seconds');
+      const timer = setInterval(() => {
+        remaining -= 1;
+        if (label) label.textContent = String(Math.max(remaining, 0));
+        if (remaining <= 0) {
+          clearInterval(timer);
+          retry();
+        }
+      }, 1000);
+    </script>
+  </body>
+</html>

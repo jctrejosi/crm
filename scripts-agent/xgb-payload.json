@@ -1,0 +1,12 @@
+{
+  "model_name": "prop_activo",
+  "data": [
+    {
+      "frecuencia": 3,
+      "monetario": 150000,
+      "ticket_promedio": 50000,
+      "categorias_distintas": 4,
+      "segmento": 2
+    }
+  ]
+}

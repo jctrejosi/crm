@@ -1,0 +1,14 @@
+node_modules/
+dist/
+release/
+tools/
+config.local.json
+*.log
+
+# Clave privada y contraseña del certificado de firma: NUNCA versionar.
+certs/*.pfx
+certs/*.key
+certs/*.pem
+certs/.pfx-password
+*.pfx
+certs/legacy/

@@ -1,0 +1,23 @@
+{
+  "name": "ecommerce-crm-desktop",
+  "productName": "Ecommerce CRM",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Aplicación de escritorio para el panel CRM de Ecommerce",
+  "author": "Ecommerce",
+  "license": "UNLICENSED",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "build:win": "node build-windows.cjs",
+    "build:win:clean": "node build-windows.cjs --clean",
+    "build:win:admin": "node build-windows.cjs --all-in-one",
+    "build:win:unsigned": "node build-windows.cjs --no-sign",
+    "cert:intune": "node scripts/build-intune-cert-script.cjs"
+  },
+  "devDependencies": {
+    "@electron/packager": "^20.3.0",
+    "electron": "^45.0.0",
+    "resedit": "^3.1.0"
+  }
+}

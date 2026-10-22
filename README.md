@@ -10,6 +10,7 @@ necesita.
 | Carpeta | Qué es | Puerto |
 |---|---|---|
 | `interface web/` | Panel React + Vite (campañas, dashboard). Gestor: **pnpm** | 8444 |
+| `Interface desktop crm/` | Shell Electron del panel + instaladores Windows firmados (`release/`) | — |
 | `backend/` | API NestJS propia del CRM (recortada del backend del ecommerce) | 3100 |
 | `ia-service/` | FastAPI + DeepSeek (contenido, nombre y explicación de campañas) | 8002 |
 | `ml/` | Modelos: `clustering-api` (8010) · `xgboost-api` (8011) · `uplift-api` (8012) | 8010 · 8011 · 8012 |
