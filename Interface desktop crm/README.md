@@ -29,7 +29,7 @@ cd "Interface desktop crm"
 npm install
 
 npm run build:win        # por usuario, sin administrador
-npm run build:win:admin  # AllInOne: pide UAC, app + certificado + acceso directo
+npm run build:win:admin  # AllInOne: pide UAC, app para todos los usuarios
 ```
 
 Resultado:
@@ -108,8 +108,7 @@ equipos. Instrucciones completas en [`deployment/README.md`](deployment/README.m
    - Si cancelas, no se instala nada.
 3. Instala la app para todos los usuarios en `%PROGRAMFILES%\Ecommerce CRM`.
 4. Crea el acceso directo **Ecommerce CRM** en el escritorio y en el menú Inicio.
-5. Instala el certificado de confianza de Ecommerce en el equipo.
-6. Crea el desinstalador. Al desinstalar también retira el certificado.
+5. Crea el desinstalador.
 
 ### Opción sin administrador (para GPO/Intune)
 
@@ -200,9 +199,9 @@ ECOMMERCE_SMOKE_TEST=1 xvfb-run -a ./node_modules/.bin/electron . --no-sandbox
 - **AllInOne** es per-machine (`RequestExecutionLevel admin`, `Program Files`);
   el instalador sin administrador es per-user (`LocalAppData`). Ambos conservan
   la sesión por usuario en `%APPDATA%\Ecommerce CRM`.
-- El AllInOne puede advertir por SmartScreen en el primer arranque, porque el
-  certificado se instala durante la ejecución. Después de instalado, ese equipo
-  confía en los binarios firmados por Ecommerce.
+- El AllInOne puede advertir por SmartScreen mientras el certificado no esté
+  desplegado en el equipo. Distribúyelo por GPO/Intune antes de instalar
+  (ver deployment/README.md).
 
 ## Estructura
 
@@ -212,7 +211,7 @@ offline.html             pantalla local cuando falla la conexión
 config.json              plantilla de configuración (URL genérica)
 config.local.json        URL real del cliente (ignorado por git)
 installer.nsi            instalador por usuario (sin administrador)
-installer-allinone.nsi   instalador con UAC (app + certificado + acceso directo)
+installer-allinone.nsi   instalador con UAC (app para todos los usuarios)
 build-windows.cjs        orquestador del build (packager + icono + firma + NSIS)
 build/icon.ico|png       icono de la app y del instalador
 certs/                   PFX, clave y contraseña (privados, ignorados por git) + .cer

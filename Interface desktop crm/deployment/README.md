@@ -13,14 +13,13 @@ compila.
 
 ## Equipos sueltos: instalador AllInOne
 
-Si el equipo no está en el dominio y no tienes Intune, usa
-`EcommerceCRM-Setup-AllInOne-<versión>.exe`: pide permisos de administrador
-(UAC), instala la app para todos los usuarios y agrega este certificado en
-`LocalMachine\Root` y `LocalMachine\TrustedPublisher`. Al desinstalar, también
-retira el certificado.
+Ningún instalador instala el certificado: embeber el `.cer` y ejecutar
+`certutil` dispara detecciones de antivirus. Despliega el certificado por
+GPO/Intune o con el script de esta carpeta **antes** de instalar.
 
-El instalador por usuario (`EcommerceCRM-Setup-<versión>.exe`) **no** instala el
-certificado; para ese caso usa GPO/Intune o el script de esta carpeta.
+- El `AllInOne` pide UAC e instala la app para todos los usuarios (Program
+  Files).
+- El instalador por usuario se instala en LocalAppData y no pide administrador.
 
 ## Archivos
 

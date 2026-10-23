@@ -1,7 +1,7 @@
 ; Instalador AllInOne de Ecommerce CRM.
 ; Requiere administrador: instala la app para todos los usuarios en
-; Program Files, deja el acceso directo en el escritorio y agrega el
-; certificado público de firma en los almacenes LocalMachine.
+; Program Files y deja el acceso directo en el escritorio.
+; El certificado de firma se despliega aparte por GPO/Intune.
 ; Generado desde installer-allinone.nsi por build-windows.cjs.
 
 Unicode true
@@ -40,7 +40,7 @@ VIAddVersionKey "LegalCopyright" "Ecommerce"
 !define MUI_ICON "@@ICON_FILE@@"
 !define MUI_UNICON "@@ICON_FILE@@"
 !define MUI_WELCOMEPAGE_TITLE "Instalación de ${PRODUCT_NAME}"
-!define MUI_WELCOMEPAGE_TEXT "Este instalador requiere permisos de administrador.$\r$\n$\r$\nInstalará ${PRODUCT_NAME} para todos los usuarios de este equipo, creará el acceso directo en el escritorio y agregará el certificado de confianza de Ecommerce.$\r$\n$\r$\nSi cancelas el aviso de administrador, no se instalará nada."
+!define MUI_WELCOMEPAGE_TEXT "Este instalador requiere permisos de administrador.$\r$\n$\r$\nInstalará ${PRODUCT_NAME} para todos los usuarios de este equipo y creará el acceso directo en el escritorio.$\r$\n$\r$\nSi cancelas el aviso de administrador, no se instalará nada."
 !define MUI_FINISHPAGE_TEXT "${PRODUCT_NAME} se instaló correctamente.$\r$\n$\r$\nAbre el acceso directo '${PRODUCT_NAME}' del escritorio para iniciar sesión."
 !define MUI_FINISHPAGE_NOREBOOTSUPPORT
 
@@ -87,23 +87,6 @@ Section "Ecommerce CRM" SecMain
     File "/oname=config.json" "@@CONFIG_FILE@@"
   config_exists:
 
-  ; Certificado público que se agrega a la confianza del equipo.
-  File "/oname=Ecommerce-JCTI-CRM-CodeSigning.cer" "@@CERT_FILE@@"
-
-  DetailPrint "Instalando certificado de confianza de Ecommerce..."
-  ${DisableX64FSRedirection}
-  nsExec::ExecToLog '"$WINDIR\System32\certutil.exe" -addstore -f Root "$INSTDIR\Ecommerce-JCTI-CRM-CodeSigning.cer"'
-  Pop $0
-  ${If} $0 != 0
-    MessageBox MB_ICONEXCLAMATION|MB_OK "No se pudo instalar el certificado en Entidades raíz de confianza (código $0). La aplicación se instalará igual, pero Windows puede mostrarla como editor desconocido."
-  ${EndIf}
-
-  nsExec::ExecToLog '"$WINDIR\System32\certutil.exe" -addstore -f TrustedPublisher "$INSTDIR\Ecommerce-JCTI-CRM-CodeSigning.cer"'
-  Pop $0
-  ${If} $0 != 0
-    MessageBox MB_ICONEXCLAMATION|MB_OK "No se pudo instalar el certificado en Editores de confianza (código $0). La aplicación se instalará igual."
-  ${EndIf}
-  ${EnableX64FSRedirection}
 
   CreateDirectory "$SMPROGRAMS\Ecommerce"
   CreateShortcut "$SMPROGRAMS\Ecommerce\Ecommerce CRM.lnk" "$INSTDIR\${PRODUCT_EXE}" "" "$INSTDIR\${PRODUCT_EXE}" 0
@@ -132,16 +115,6 @@ Section "Uninstall"
   Delete "$SMPROGRAMS\Ecommerce\Ecommerce CRM.lnk"
   RMDir "$SMPROGRAMS\Ecommerce"
 
-  ; Quitar el certificado de confianza instalado por este instalador.
-  ; Si otro producto de Ecommerce usa el mismo certificado, habrá que
-  ; redistribuirlo o volver a instalarlo.
-  DetailPrint "Quitando certificado de confianza de Ecommerce..."
-  ${DisableX64FSRedirection}
-  nsExec::ExecToLog '"$WINDIR\System32\certutil.exe" -delstore Root "@@CERT_THUMBPRINT@@"'
-  Pop $0
-  nsExec::ExecToLog '"$WINDIR\System32\certutil.exe" -delstore TrustedPublisher "@@CERT_THUMBPRINT@@"'
-  Pop $0
-  ${EnableX64FSRedirection}
 
   RMDir /r "$INSTDIR"
 

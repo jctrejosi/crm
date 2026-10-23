@@ -11,7 +11,7 @@
  * Uso:
  *   npm run build:win
  *   npm run build:win:clean
- *   npm run build:win:admin      (AllInOne: pide UAC, instala app + certificado)
+ *   npm run build:win:admin      (AllInOne: pide UAC, instala app para todos los usuarios)
  *   npm run build:win:unsigned   (omite la firma)
  *
  * Firma: si existe certs/Ecommerce-JCTI-CRM-CodeSigning.pfx, firma la app y el
@@ -23,7 +23,6 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const crypto = require('node:crypto');
 const { execFileSync } = require('node:child_process');
 
 const { packager } = require('@electron/packager');
@@ -51,7 +50,6 @@ const configFile = path.join(root, 'config.json');
 const localConfigFile = path.join(root, 'config.local.json');
 const configSource = fs.existsSync(localConfigFile) ? localConfigFile : configFile;
 const buildConfigFile = path.join(distDir, 'config', 'config.json');
-const certFile = path.join(root, 'deployment', 'Ecommerce-JCTI-CRM-CodeSigning.cer');
 const setupFile = path.join(
   distDir,
   `${APP_ID}-Setup${allInOne ? '-AllInOne' : ''}-${pkg.version}.exe`,
@@ -275,10 +273,6 @@ function versionParts(version) {
   return [numbers[0] || 1, numbers[1] || 0, numbers[2] || 0, 0];
 }
 
-/** Thumbprint SHA-1 del certificado DER, tal como lo muestra Windows. */
-function certThumbprint(file) {
-  return crypto.createHash('sha1').update(fs.readFileSync(file)).digest('hex').toUpperCase();
-}
 
 /** Aplica icono y metadatos de versión al .exe sin necesitar wine/rcedit. */
 function patchExecutable(exePath) {
@@ -348,8 +342,6 @@ function writeInstallerScript(sourceDir) {
     .replaceAll('@@OUTPUT_FILE@@', toNsisPath(setupFile))
     .replaceAll('@@ICON_FILE@@', toNsisPath(iconIco))
     .replaceAll('@@CONFIG_FILE@@', toNsisPath(buildConfigFile))
-    .replaceAll('@@CERT_FILE@@', toNsisPath(certFile))
-    .replaceAll('@@CERT_THUMBPRINT@@', allInOne ? certThumbprint(certFile) : '')
     .replaceAll('@@ESTIMATED_SIZE@@', String(estimatedKb));
 
   fs.mkdirSync(workDir, { recursive: true });
@@ -372,12 +364,6 @@ async function main() {
 
   ensureIcon();
 
-  if (allInOne && !fs.existsSync(certFile)) {
-    fail(
-      `El instalador AllInOne necesita el certificado público ${certFile}.\n` +
-        'Genera el certificado antes de compilar.',
-    );
-  }
 
   const signingBackend = await ensureSigningTools();
 
