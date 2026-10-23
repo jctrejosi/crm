@@ -1,0 +1,55 @@
+name: CI/CD
+
+# CI valida cada push a dev y los PR. El despliegue solo corre en push/manual
+# sobre dev, después de que CI pase.
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-cd-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  ci:
+    name: Validación
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sintaxis de lanzadores y script de despliegue
+        run: |
+          node --check prod.js
+          node --check dev.js
+          bash -n deploy/deploy.sh
+
+      - name: Validar docker compose
+        run: |
+          touch docker/.env
+          docker compose -f docker/docker-compose.yml config --quiet
+
+  deploy:
+    name: Desplegar en el VPS
+    needs: ci
+    if: >-
+      needs.ci.result == 'success' &&
+      github.ref == 'refs/heads/dev' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: [self-hosted, linux, mercaldas]
+    timeout-minutes: 90
+    concurrency:
+      group: deploy-crm
+      cancel-in-progress: false
+    steps:
+      - name: Desplegar commit
+        env:
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/mnt/c/Users/Desarrolo4/Documents/crm' }}
+          TARGET_SHA: ${{ github.sha }}
+        run: bash "$DEPLOY_PATH/deploy/deploy.sh" "$TARGET_SHA"
