@@ -23,7 +23,7 @@
  *   node crm/dev.js --stop [flags]  # detiene lo levantado (o solo lo seleccionado)
  *   node crm/dev.js --help
  *
- * Un flag desconocido no levanta nada (aborta; usa --help para ver las opciones).
+ * Un argumento desconocido no levanta nada (aborta; usa --help para ver las opciones).
  *
  * Dependencias locales: si faltan node_modules (backend/web) o .venv (ia/ml),
  * se instalan automáticamente antes de arrancar.
@@ -39,7 +39,12 @@
  *
  * Logs: crm/logs/*.log · PIDs: crm/logs/.pids.json.
  */
-const { spawn, spawnSync } = require("node:child_process");
+const cp = require("node:child_process");
+// En Windows, un proceso con `detached` y sin `windowsHide` abre una terminal
+// nueva por servicio. Se envuelven spawn/spawnSync para ocultarla siempre (en
+// otros SO la opción se ignora).
+const spawn = (cmd, args, opts = {}) => cp.spawn(cmd, args, { windowsHide: true, ...opts });
+const spawnSync = (cmd, args, opts = {}) => cp.spawnSync(cmd, args, { windowsHide: true, ...opts });
 const crypto = require("node:crypto");
 const fs = require("node:fs");
 const net = require("node:net");
@@ -91,8 +96,9 @@ const VALID_FLAGS = new Set([
   ...SERVICES.map((s) => `--${s.name}`),
 ]);
 
+/** Argumentos no reconocidos: flags `--x` fuera de VALID_FLAGS o cualquier posicional. */
 function unknownFlags(argv) {
-  return argv.filter((a) => a.startsWith("--") && !VALID_FLAGS.has(a.toLowerCase()));
+  return argv.filter((a) => !VALID_FLAGS.has(a.toLowerCase()));
 }
 
 // ── Utilidades ──────────────────────────────────────────────
@@ -122,7 +128,7 @@ function sleepSync(ms) {
   Atomics.wait(new Int32Array(sab), 0, 0, ms);
 }
 
-/** Libera el puerto de un proceso previo. Windows: netstat + taskkill; POSIX: fuser. */
+/** Libera el puerto de un proceso previo. Windows: netstat + taskkill; Linux: fuser; macOS: lsof. */
 function killPort(port) {
   if (IS_WIN) {
     try {
@@ -141,18 +147,28 @@ function killPort(port) {
     }
     return;
   }
-  const r = spawnSync("fuser", ["-k", `${port}/tcp`], {
+  // POSIX: `fuser` (Linux). macOS no trae `fuser` → fallback a `lsof`.
+  const fuser = spawnSync("fuser", ["-k", `${port}/tcp`], {
     stdio: ["ignore", "pipe", "ignore"], encoding: "utf8",
   });
-  const out = (r.stdout || "").toString().trim();
-  if (out) console.log(`  ✓ puerto ${port} liberado (PID ${out})`);
+  let out = (fuser.stdout || "").toString().trim();
+  if (fuser.error || fuser.status === null) {
+    const lsof = spawnSync("lsof", ["-ti", `tcp:${port}`], { encoding: "utf8" });
+    out = (lsof.stdout || "").trim();
+    for (const pid of out.split("\n").filter(Boolean)) {
+      try { process.kill(Number(pid), "SIGKILL"); } catch { /* ya terminó */ }
+    }
+  }
+  if (out) console.log(`  ✓ puerto ${port} liberado (PID ${out.split("\n").join(", ")})`);
 }
 
-function openLog(name) {
+/** Anexa la cabecera de arranque al log del servicio. */
+function writeLogHeader(name) {
   fs.mkdirSync(LOGS_DIR, { recursive: true });
-  const fd = fs.openSync(path.join(LOGS_DIR, `${name}.log`), "a");
-  fs.writeSync(fd, `\n===== [${name}] ${new Date().toISOString()} =====\n`);
-  return fd;
+  fs.appendFileSync(
+    path.join(LOGS_DIR, `${name}.log`),
+    `\n===== [${name}] ${new Date().toISOString()} =====\n`,
+  );
 }
 
 /** Servicios elegidos por flags (sin flags de selección ⇒ todos). */
@@ -223,9 +239,15 @@ function pickBackup() {
   });
 
   const g = list[0];
-  // Si está el volcado completo, se usa ese; si no, se reensamblan las partes.
+  // Si está el volcado completo, se usa ese; si no, se reensamblan las partes
+  // en orden NUMÉRICO (lexicográfico rompería con partes sin zero-padding).
   const full = g.files.find((n) => n.endsWith(".backup"));
-  const files = (full ? [full] : g.files.slice().sort()).map((n) => path.join(BACKUPS_DIR, n));
+  const partNum = (n) => {
+    const m = n.match(/\.part-(\d+)$/);
+    return m ? Number(m[1]) : 0;
+  };
+  const ordered = g.files.slice().sort((a, b) => partNum(a) - partNum(b));
+  const files = (full ? [full] : ordered).map((n) => path.join(BACKUPS_DIR, n));
   return { files, shaFile: path.join(BACKUPS_DIR, `${g.base}.sha256`) };
 }
 
@@ -355,12 +377,15 @@ function restoreAnalytics({ force = false } = {}) {
       "UNION ALL SELECT 'pos.venta_lineas=' || count(*) FROM pos.venta_lineas"],
     { timeout: 120000 },
   );
-  if (v.status === 0 && (v.stdout || "").trim()) {
-    console.log(`${tag} ${v.stdout.trim().split("\n").join(" · ")}`);
-  }
+  const verified = v.status === 0 && !!(v.stdout || "").trim();
+  if (verified) console.log(`${tag} ${v.stdout.trim().split("\n").join(" · ")}`);
 
-  console.log(`${tag} ✅ BD analytics restaurada`);
-  return true;
+  if (verified) {
+    console.log(`${tag} ✅ BD analytics restaurada`);
+    return true;
+  }
+  console.warn(`${tag} ⚠️  pg_restore exit=${pr.status} y no se pudieron verificar los conteos`);
+  return false;
 }
 
 // ── Migrar la operativa desde el ecommerce (multiplataforma) ──
@@ -500,15 +525,45 @@ function ensurePythonVenv(svc) {
   return true;
 }
 
+/** Comando + args como una sola cadena, para usar `shell` en Windows sin
+ *  gatillar el aviso DEP0190 (pasar args junto a shell:true). */
+function shellCmd(cmd, args) {
+  return [cmd, ...args].map((a) => (/\s/.test(a) ? `"${a}"` : a)).join(" ");
+}
+
+/** ¿Está `cmd` en el PATH? (Windows: where · POSIX: which) */
+function commandExists(cmd) {
+  const probe = spawnSync(IS_WIN ? "where" : "which", [cmd], { stdio: "ignore" });
+  return probe.status === 0;
+}
+
+/** Instala pnpm global si falta (lo usa el servicio web). */
+function ensurePnpm(color = "") {
+  const tag = `${color}[web]${C.reset}`;
+  if (commandExists("pnpm")) return true;
+  console.log(`${tag} 📦 'pnpm' no está instalado → instalándolo globalmente (npm i -g pnpm)...`);
+  const r = spawnSync(
+    IS_WIN ? "npm install -g pnpm" : "npm",
+    IS_WIN ? [] : ["install", "-g", "pnpm"],
+    { stdio: "inherit", shell: IS_WIN },
+  );
+  if (r.status === 0 && commandExists("pnpm")) return true;
+  console.error(`${tag} ✘ no se pudo instalar 'pnpm'. Instálalo a mano (npm i -g pnpm) y reintenta.`);
+  return false;
+}
+
 /** Instala dependencias del servicio si no están (node_modules). */
 function ensureNodeDeps(svc) {
   const dir = path.join(ROOT, svc.dir);
   if (fs.existsSync(path.join(dir, "node_modules"))) return true;
   const color = C[svc.name] || "";
+  if (svc.install[0] === "pnpm" && !ensurePnpm(color)) return false;
   console.log(`${color}[${svc.name}]${C.reset} 📦 instalando dependencias (${svc.install.join(" ")})...`);
-  const r = spawnSync(svc.install[0], svc.install.slice(1), {
-    cwd: dir, stdio: "inherit", shell: IS_WIN, // npm/pnpm son .cmd en Windows
-  });
+  const r = spawnSync(
+    IS_WIN ? shellCmd(svc.install[0], svc.install.slice(1)) : svc.install[0],
+    IS_WIN ? [] : svc.install.slice(1),
+    { cwd: dir, stdio: "inherit", shell: IS_WIN }, // npm/pnpm son .cmd en Windows
+  );
   if (r.status !== 0) {
     console.error(`${color}[${svc.name}]${C.reset} ✘ falló: ${svc.install.join(" ")}`);
     return false;
@@ -574,7 +629,6 @@ function startService(svc, mode, opts = {}) {
   });
   child.on("error", (err) => console.error(`${color}[${svc.name}]${C.reset} ✘ ${err.message}`));
   child.unref();
-  fs.closeSync(fd);
   return child.pid;
 }
 
@@ -651,7 +705,7 @@ function printHelp() {
       "  Linux · macOS · Windows. Restaurar/migrar no requiere bash.",
       "",
       "Logs: crm/logs/*.log · PIDs: crm/logs/.pids.json",
-      "Un flag desconocido no levanta nada (aborta; usa --help para ver las opciones).",
+      "Un argumento desconocido no levanta nada (aborta; usa --help para ver las opciones).",
     ].join("\n"),
   );
 }
@@ -669,12 +723,17 @@ async function main() {
 
   const unknown = unknownFlags(argv);
   if (unknown.length) {
-    console.error(`✘ Flag(s) desconocido(s): ${unknown.join(", ")} — no se levanta nada.`);
-    console.error("  Usa `node dev.js --help` para ver las opciones.");
+    console.error(`✘ Argumento(s) no reconocido(s): ${unknown.join(", ")} — no se levanta nada.`);
+    console.error("  Usa `node crm/dev.js --help` para ver las opciones.");
     process.exit(1);
   }
 
   if (STOP) return stopAll(services);
+
+  const dbSelected = services.some((s) => s.name === "db");
+  if ((RESTORE || MIGRATE) && !dbSelected) {
+    console.warn("⚠️  --restore/--migrate actúan sobre la BD: sin --db no harán nada.");
+  }
 
   fs.mkdirSync(LOGS_DIR, { recursive: true });
   console.log(`🧩 CRM — modo ${MODE.toUpperCase()} · ${services.map((s) => s.name).join(" + ")}`);
@@ -689,8 +748,8 @@ async function main() {
 
   for (const svc of services) {
     if (svc.kind === "docker" || !started[svc.name]) continue;
-    const up = await waitForPort(svc.port, 90000);
-    const ok = up ? "✅ listo" : `⚠️  no respondió (ver logs/${svc.name}.log)`;
+    const up = await waitForPort(svc.port, 180000);
+    const ok = up ? "✅ listo" : `⚠️  no respondió aún (ver logs/${svc.name}.log)`;
     console.log(`${C[svc.name] || ""}[${svc.name}]${C.reset} ${ok}`);
   }
 
