@@ -12,6 +12,7 @@ import mercadoData from '../data/mercado/mercado.json';
 
 type StoreId = 'exito' | 'olimpica' | 'carulla' | 'd1';
 type Mode = 'exact' | 'all';
+type Scope = 'all' | 'food' | 'nonfood';
 
 interface Match {
   price: number;
@@ -26,6 +27,7 @@ interface Product {
   category: string;
   category_l2: string;
   category_l3: string;
+  nonfood: boolean;
   price: number;
   size: [string, number] | null;
   exact: Partial<Record<StoreId, Match>>;
@@ -60,6 +62,7 @@ interface CategoryStats {
 }
 
 interface Kpis {
+  universe: number;
   compared: number;
   compared_pct: number;
   compared_exact: number;
@@ -102,38 +105,79 @@ interface MercadoData {
     generated_at: string;
     source_generated_at: string | null;
     source_dates?: Record<string, string | null>;
+    source_dates_nonfood?: Record<string, string | null>;
     mercaldas_captured_at?: string | null;
     scope: string;
     threshold: number;
     mercaldas_products: number;
+    universe_by_scope?: Record<Scope, number>;
     compared: number;
     compared_pct: number;
     compared_exact: number;
     compared_equivalent_only: number;
     pack_mismatch_dropped: number;
     stores: { id: StoreId; name: string; data_date?: string | null }[];
-    coverage_by_root: Record<string, { total: number; compared: number; compared_pct: number }>;
+    coverage_by_root: Record<
+      string,
+      { total: number; compared: number; compared_pct: number; food?: boolean }
+    >;
   };
-  modes: Record<Mode, ModeStats>;
+  modes: Record<Mode, Record<Scope, ModeStats>>;
   products: Product[];
 }
 
 const DATA = mercadoData as unknown as MercadoData;
 
+const SCOPES: { id: Scope; label: string }[] = [
+  { id: 'all', label: 'Todo' },
+  { id: 'food', label: 'Alimentos' },
+  { id: 'nonfood', label: 'No alimentos' },
+];
+
+const SCOPE_PHRASE: Record<Scope, string> = {
+  all: '',
+  food: ' de alimentos',
+  nonfood: ' de no alimentos',
+};
+
 // Frescura: cada catálogo se crawlea en una fecha distinta; el chip muestra el
-// rango y el tooltip el detalle por almacén.
-const SOURCE_DATES = Object.entries(DATA.meta.source_dates ?? {}).filter(
-  (entry): entry is [string, string] => Boolean(entry[1]),
-);
-const DATE_MS = SOURCE_DATES.map(([, iso]) => new Date(iso).getTime());
-const OLDEST_DATE = DATE_MS.length ? new Date(Math.min(...DATE_MS)).toISOString() : null;
-const NEWEST_DATE = DATE_MS.length ? new Date(Math.max(...DATE_MS)).toISOString() : null;
-const DATE_TOOLTIP = [
-  ...SOURCE_DATES.map(
-    ([key, iso]) => `${key === 'mercaldas' ? 'Mercaldas' : key}: ${fmtFullDay(iso)}`,
-  ),
-  `Radar generado: ${fmtFullDay(DATA.meta.source_generated_at || DATA.meta.generated_at)}`,
-].join('\n');
+// rango y el tooltip el detalle por almacén. Los no-alimentos se capturan al
+// consultar cada EAN, así que llevan su propia fecha y por eso el rango cambia
+// según el alcance seleccionado.
+interface DateRange {
+  oldest: string | null;
+  newest: string | null;
+  tooltip: string;
+}
+
+function dateRange(scope: Scope): DateRange {
+  const entries: [string, string][] = [];
+  const add = (source: Record<string, string | null> | undefined, suffix: string) => {
+    for (const [key, iso] of Object.entries(source ?? {})) {
+      if (iso) entries.push([key === 'mercaldas' ? 'Mercaldas' : key + suffix, iso]);
+    }
+  };
+  if (scope !== 'nonfood') add(DATA.meta.source_dates, '');
+  if (scope !== 'food') add(DATA.meta.source_dates_nonfood, ' (no alimentos)');
+
+  const ms = entries.map(([, iso]) => new Date(iso).getTime()).filter((n) => !Number.isNaN(n));
+  return {
+    oldest: ms.length ? new Date(Math.min(...ms)).toISOString() : null,
+    newest: ms.length ? new Date(Math.max(...ms)).toISOString() : null,
+    tooltip: [
+      ...entries.map(([key, iso]) => `${key}: ${fmtFullDay(iso)}`),
+      `Radar generado: ${fmtFullDay(DATA.meta.source_generated_at || DATA.meta.generated_at)}`,
+    ].join('\n'),
+  };
+}
+
+const SCOPE_DATES: Record<Scope, DateRange> = {
+  all: dateRange('all'),
+  food: dateRange('food'),
+  nonfood: dateRange('nonfood'),
+};
+
+const HAS_NONFOOD = (DATA.meta.universe_by_scope?.nonfood ?? 0) > 0;
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -440,6 +484,7 @@ const PAGE_SIZE = 20;
 
 export default function Mercado() {
   const [mode, setMode] = useState<Mode>('exact');
+  const [scope, setScope] = useState<Scope>('all');
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<string | null>(null);
   const [onlyRisk, setOnlyRisk] = useState(false);
@@ -448,16 +493,24 @@ export default function Mercado() {
   const [page, setPage] = useState(0);
   const [openId, setOpenId] = useState<string | null>(null);
 
-  const stats = DATA.modes[mode];
+  const stats = DATA.modes[mode][scope];
   const kpis = stats.kpis;
+  const dates = SCOPE_DATES[scope];
+
+  // al cambiar de alcance la categoría activa puede no existir en el nuevo
+  useEffect(() => {
+    setCategory(null);
+  }, [scope]);
 
   useEffect(() => {
     setPage(0);
-  }, [mode, query, category, onlyRisk, sort]);
+  }, [mode, scope, query, category, onlyRisk, sort]);
 
   const filtered = useMemo(() => {
     const needle = norm(query.trim());
     return DATA.products.filter((product) => {
+      if (scope === 'food' && product.nonfood) return false;
+      if (scope === 'nonfood' && !product.nonfood) return false;
       if (category && categoryId(product) !== category) return false;
       const gap = gapFor(product, mode);
       if (gap === null) return false;
@@ -468,7 +521,7 @@ export default function Mercado() {
       }
       return true;
     });
-  }, [mode, query, category, onlyRisk, kpis.risk_threshold]);
+  }, [mode, scope, query, category, onlyRisk, kpis.risk_threshold]);
 
   const ranked = useMemo(() => {
     const rows = filtered.map((product) => ({
@@ -527,13 +580,25 @@ export default function Mercado() {
           </p>
           <h1 className="text-2xl font-bold text-gray-900 mt-1">Radar de Precios</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            {fmtNum(DATA.meta.mercaldas_products)} productos
-            {DATA.meta.scope === 'alimentos' ? ' de alimentos' : ''} de Mercaldas ·{' '}
+            {fmtNum(kpis.universe)} productos{SCOPE_PHRASE[scope]} de Mercaldas ·{' '}
             {DATA.meta.stores.length} almacenes · precios en COP
           </p>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+            {SCOPES.filter((option) => option.id !== 'nonfood' || HAS_NONFOOD).map((option) => (
+              <button
+                key={option.id}
+                onClick={() => setScope(option.id)}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                  scope === option.id ? 'bg-surface text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
           <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
             <button
               onClick={() => setMode('exact')}
@@ -554,13 +619,13 @@ export default function Mercado() {
           </div>
           <div
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface border border-gray-200 text-xs text-gray-500"
-            title={DATE_TOOLTIP}
+            title={dates.tooltip}
           >
             <Store size={13} />
-            {OLDEST_DATE && NEWEST_DATE
-              ? fmtDay(OLDEST_DATE) === fmtDay(NEWEST_DATE)
-                ? `Precios al ${fmtDay(NEWEST_DATE)}`
-                : `Precios ${fmtDay(OLDEST_DATE)} – ${fmtDay(NEWEST_DATE)}`
+            {dates.oldest && dates.newest
+              ? fmtDay(dates.oldest) === fmtDay(dates.newest)
+                ? `Precios al ${fmtDay(dates.newest)}`
+                : `Precios ${fmtDay(dates.oldest)} – ${fmtDay(dates.newest)}`
               : 'Precios sin fecha'}
           </div>
         </div>
@@ -590,9 +655,9 @@ export default function Mercado() {
       <div className="flex items-start gap-3 bg-amber-50/70 border border-amber-200 rounded-xl px-4 py-3">
         <Info size={16} className="text-amber-600 shrink-0 mt-0.5" />
         <p className="text-sm text-amber-900">
-          <strong>{fmtNum(kpis.compared)} de {fmtNum(DATA.meta.mercaldas_products)}</strong> productos tienen
+          <strong>{fmtNum(kpis.compared)} de {fmtNum(kpis.universe)}</strong> productos tienen
           comparación ({kpis.compared_pct} %).{' '}
-          {DATA.meta.compared_exact > 0 && (
+          {kpis.compared_exact > 0 && (
             <>
               {fmtNum(kpis.compared_exact)} cruzan por <strong>EAN exacto</strong> y{' '}
               {fmtNum(kpis.compared_equivalent_only)} solo por <strong>equivalencia</strong>.{' '}
@@ -602,7 +667,10 @@ export default function Mercado() {
             <>
               Sin comparación en este modo:{' '}
               <strong>
-                {missingCategories.map((c) => `${c.name} (${fmtNum(c.total)})`).join(', ')}
+                {missingCategories.slice(0, 6).map((c) => `${c.name} (${fmtNum(c.total)})`).join(', ')}
+                {missingCategories.length > 6
+                  ? ` y ${missingCategories.length - 6} categorías más`
+                  : ''}
               </strong>.
             </>
           )}
@@ -615,7 +683,7 @@ export default function Mercado() {
           icon={Target}
           label="Productos comparados"
           value={`${kpis.compared_pct} %`}
-          sub={`${fmtNum(kpis.compared)} de ${fmtNum(DATA.meta.mercaldas_products)} del catálogo`}
+          sub={`${fmtNum(kpis.compared)} de ${fmtNum(kpis.universe)} del catálogo`}
           hint="Cobertura del análisis: productos de Mercaldas con al menos un precio comparable."
         />
         <KpiCard
@@ -662,7 +730,7 @@ export default function Mercado() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           {stats.stores.map((store) => (
-            <StoreCard key={store.id} store={store} total={DATA.meta.mercaldas_products} />
+            <StoreCard key={store.id} store={store} total={kpis.universe} />
           ))}
         </div>
       </div>
@@ -1091,7 +1159,10 @@ export default function Mercado() {
           añade productos del mismo tipo y mismo contenido (peso/volumen/unidades) de otra marca, con similitud de
           nombre ≥ {(DATA.meta.threshold * 100).toFixed(0)} %. La diferencia se calcula contra el <em>almacén más
           barato</em> de cada producto. Se descartaron {fmtNum(DATA.meta.pack_mismatch_dropped)} pares por empaque
-          incompatible (pack vs unidad). Cobertura actual: solo catálogos de alimentos.
+          incompatible (pack vs unidad).{' '}
+          {HAS_NONFOOD
+            ? 'Los no-alimentos solo cruzan por EAN idéntico (marca y especificaciones no admiten equivalencia por nombre).'
+            : 'Cobertura actual: solo catálogos de alimentos.'}
         </p>
       </div>
     </div>
