@@ -7,6 +7,7 @@ import {
   Bar, BarChart, Cell, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
 import mercadoData from '../data/mercado/mercado.json';
+import { buildDoc, buildSearcher } from '../lib/search';
 
 // ─── tipos del dataset (generado por Vassago/scripts-agent/build_mercado_data.py) ──
 
@@ -179,6 +180,11 @@ const SCOPE_DATES: Record<Scope, DateRange> = {
 
 const HAS_NONFOOD = (DATA.meta.universe_by_scope?.nonfood ?? 0) > 0;
 
+// Índice de búsqueda alineado con `DATA.products`: se arma una sola vez.
+const SEARCH_INDEX = DATA.products.map((product) =>
+  buildDoc(product.name, product.brand, product.id),
+);
+
 // ─── helpers ────────────────────────────────────────────────────────────────
 
 const STORE_COLORS: Record<StoreId, string> = {
@@ -223,13 +229,6 @@ function fmtFullDay(iso: string | null | undefined) {
   return new Date(iso).toLocaleDateString('es-CO', {
     day: '2-digit', month: 'short', year: 'numeric',
   });
-}
-
-function norm(text: string) {
-  return text
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
 }
 
 function gapTextColor(gap: number | null | undefined) {
@@ -507,31 +506,37 @@ export default function Mercado() {
   }, [mode, scope, query, category, onlyRisk, sort]);
 
   const filtered = useMemo(() => {
-    const needle = norm(query.trim());
-    return DATA.products.filter((product) => {
-      if (scope === 'food' && product.nonfood) return false;
-      if (scope === 'nonfood' && !product.nonfood) return false;
-      if (category && categoryId(product) !== category) return false;
+    const search = buildSearcher(query);
+    const rows: { product: Product; relevance: number }[] = [];
+    DATA.products.forEach((product, index) => {
+      if (scope === 'food' && product.nonfood) return;
+      if (scope === 'nonfood' && !product.nonfood) return;
+      if (category && categoryId(product) !== category) return;
       const gap = gapFor(product, mode);
-      if (gap === null) return false;
-      if (onlyRisk && gap < kpis.risk_threshold) return false;
-      if (needle) {
-        const haystack = norm(`${product.name} ${product.brand} ${product.id}`);
-        if (!haystack.includes(needle)) return false;
-      }
-      return true;
+      if (gap === null) return;
+      if (onlyRisk && gap < kpis.risk_threshold) return;
+      const relevance = search(SEARCH_INDEX[index]);
+      if (relevance === null) return;
+      rows.push({ product, relevance });
     });
+    return rows;
   }, [mode, scope, query, category, onlyRisk, kpis.risk_threshold]);
 
   const ranked = useMemo(() => {
-    const rows = filtered.map((product) => ({
+    const rows = filtered.map(({ product, relevance }) => ({
       product,
+      relevance,
       gap: gapFor(product, mode) ?? 0,
       best: bestFor(product, mode),
     }));
-    if (sort === 'gap') rows.sort((a, b) => b.gap - a.gap);
-    else if (sort === 'price') rows.sort((a, b) => b.product.price - a.product.price);
-    else rows.sort((a, b) => a.product.name.localeCompare(b.product.name, 'es'));
+    // Como en el ecommerce: con búsqueda activa manda la relevancia y el orden
+    // elegido en la tabla solo desempata.
+    rows.sort((a, b) => {
+      if (b.relevance !== a.relevance) return b.relevance - a.relevance;
+      if (sort === 'gap') return b.gap - a.gap;
+      if (sort === 'price') return b.product.price - a.product.price;
+      return a.product.name.localeCompare(b.product.name, 'es');
+    });
     return rows;
   }, [filtered, sort, mode]);
 
@@ -541,12 +546,12 @@ export default function Mercado() {
   // «Precios a revisar» siempre por brecha, sin importar el orden de la tabla
   const reviewRows = useMemo(() => {
     return filtered
-      .map((product) => ({ product, gap: gapFor(product, mode) ?? 0, best: bestFor(product, mode) }))
+      .map(({ product }) => ({ product, gap: gapFor(product, mode) ?? 0, best: bestFor(product, mode) }))
       .sort((a, b) => b.gap - a.gap)
       .slice(0, 8);
   }, [filtered, mode]);
 
-  const overpriceSum = filtered.reduce((total, product) => {
+  const overpriceSum = filtered.reduce((total, { product }) => {
     const gap = gapFor(product, mode);
     if (gap === null || gap <= 0) return total;
     const best = bestFor(product, mode);
@@ -637,7 +642,7 @@ export default function Mercado() {
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Buscar producto en todo el radar (p. ej. arroz, leche, 7702…)"
+          placeholder="Buscar producto, marca o código (tolera tildes y errores: «arros», «dianna», 7702…)"
           className="w-full pl-10 pr-10 py-2.5 text-sm rounded-xl border border-gray-200 bg-surface shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-200"
         />
         {query && (
@@ -667,10 +672,7 @@ export default function Mercado() {
             <>
               Sin comparación en este modo:{' '}
               <strong>
-                {missingCategories.slice(0, 6).map((c) => `${c.name} (${fmtNum(c.total)})`).join(', ')}
-                {missingCategories.length > 6
-                  ? ` y ${missingCategories.length - 6} categorías más`
-                  : ''}
+                {missingCategories.map((c) => `${c.name} (${fmtNum(c.total)})`).join(', ')}
               </strong>.
             </>
           )}
