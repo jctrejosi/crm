@@ -171,6 +171,12 @@ function writeLogHeader(name) {
   );
 }
 
+/** Abre el log del servicio en modo append y devuelve el file descriptor. */
+function openLog(name) {
+  writeLogHeader(name);
+  return fs.openSync(path.join(LOGS_DIR, `${name}.log`), "a");
+}
+
 /** Servicios elegidos por flags (sin flags de selección ⇒ todos). */
 function selectServices(argv) {
   const flags = argv.filter((a) => a.startsWith("--")).map((a) => a.slice(2).toLowerCase());

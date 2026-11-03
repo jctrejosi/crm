@@ -22,14 +22,16 @@ import {
   Sun,
   Moon,
   Loader2,
+  LineChart,
 } from "lucide-react";
 import Dashboard from "./views/Dashboard";
 import Campaigns from "./views/Campaigns";
+import Mercado from "./views/Mercado";
 import Login from "./components/Login";
 import { authService, type UserProfile } from "./services/auth.service";
 import { THEMES, MODES, useTheme } from "./theme";
 
-export type ViewId = "dashboard" | "campaigns";
+export type ViewId = "dashboard" | "campaigns" | "mercado";
 
 interface NavItem {
   id: ViewId;
@@ -49,7 +51,10 @@ const NAV: NavSection[] = [
   },
   {
     title: "Marketing",
-    items: [{ id: "campaigns", label: "Campañas", icon: Send }],
+    items: [
+      { id: "campaigns", label: "Campañas", icon: Send },
+      { id: "mercado", label: "Mercado", icon: LineChart },
+    ],
   },
 ];
 
@@ -57,21 +62,25 @@ const VIEW_PATHS: Record<string, ViewId> = {
   "": "dashboard",
   dashboard: "dashboard",
   campaigns: "campaigns",
+  mercado: "mercado",
 };
 
 const VIEW_SLUGS: Record<ViewId, string> = {
   dashboard: "dashboard",
   campaigns: "campaigns",
+  mercado: "mercado",
 };
 
 const LABELS: Record<ViewId, string> = {
   dashboard: "Dashboard",
   campaigns: "Campañas",
+  mercado: "Mercado",
 };
 
 const QUICK_COMMANDS = [
   { icon: LayoutDashboard, label: "Ir al Dashboard", view: "dashboard" as ViewId },
   { icon: Send, label: "Ver campañas", view: "campaigns" as ViewId },
+  { icon: LineChart, label: "Radar de precios", view: "mercado" as ViewId },
 ];
 
 function useViewFromUrl(): [ViewId, (v: ViewId) => void] {
@@ -586,6 +595,8 @@ function ViewRenderer({
       return <Dashboard userName={userName} onNavigate={onNavigate} />;
     case "campaigns":
       return <Campaigns />;
+    case "mercado":
+      return <Mercado />;
     default:
       return <Dashboard userName={userName} onNavigate={onNavigate} />;
   }
