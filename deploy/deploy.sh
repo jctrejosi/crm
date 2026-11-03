@@ -13,7 +13,7 @@
 # ============================================================
 set -Eeuo pipefail
 
-ROOT="${DEPLOY_PATH:-/mnt/c/Users/Desarrolo4/Documents/crm}"
+ROOT="${DEPLOY_PATH:-/home/deploy/crm}"
 TARGET="${1:-origin/dev}"
 
 log() { printf '[crm-deploy] %s\n' "$*"; }

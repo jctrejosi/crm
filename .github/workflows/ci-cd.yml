@@ -50,6 +50,6 @@ jobs:
     steps:
       - name: Desplegar commit
         env:
-          DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/mnt/c/Users/Desarrolo4/Documents/crm' }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/home/deploy/crm' }}
           TARGET_SHA: ${{ github.sha }}
         run: bash "$DEPLOY_PATH/deploy/deploy.sh" "$TARGET_SHA"
