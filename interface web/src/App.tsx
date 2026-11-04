@@ -14,9 +14,7 @@ import {
   LogOut,
   ChevronLeft,
   AlertTriangle,
-  ShoppingCart,
-  Zap,
-  Users,
+  Info,
   Palette,
   Check,
   Sun,
@@ -29,6 +27,10 @@ import Campaigns from "./views/Campaigns";
 import Mercado from "./views/Mercado";
 import Login from "./components/Login";
 import { authService, type UserProfile } from "./services/auth.service";
+import {
+  marketService,
+  type AppNotification,
+} from "./services/market.service";
 import { THEMES, MODES, useTheme } from "./theme";
 
 export type ViewId = "dashboard" | "campaigns" | "mercado";
@@ -203,75 +205,127 @@ function CommandPalette({
   );
 }
 
-function Notifications({ onClose }: { onClose: () => void }) {
-  const items = [
-    {
-      icon: AlertTriangle,
-      color: "text-amber-500 bg-amber-50",
-      title: "Stock bajo detectado",
-      sub: "Leche Alquería — quedan 12 unidades",
-      time: "hace 5m",
-    },
-    {
-      icon: ShoppingCart,
-      color: "text-blue-500 bg-blue-50",
-      title: "Nuevo pedido #MC-3821",
-      sub: "Total: $124.900 — Pago confirmado",
-      time: "hace 12m",
-    },
-    {
-      icon: Zap,
-      color: "text-green-500 bg-green-50",
-      title: "Campaña activada",
-      sub: "Flash Sale Viernes — 47 productos",
-      time: "hace 1h",
-    },
-    {
-      icon: Users,
-      color: "text-purple-500 bg-purple-50",
-      title: "100 nuevos clientes hoy",
-      sub: "+18% comparado con ayer",
-      time: "hace 2h",
-    },
-  ];
+const NOTIFICATION_META = {
+  error: { Icon: AlertTriangle, color: "text-red-600 bg-red-50" },
+  warning: { Icon: AlertTriangle, color: "text-amber-500 bg-amber-50" },
+  info: { Icon: Info, color: "text-blue-500 bg-blue-50" },
+} as const;
+
+function relativeTime(iso: string): string {
+  const minutes = Math.max(
+    1,
+    Math.round((Date.now() - new Date(iso).getTime()) / 60000),
+  );
+  if (minutes < 60) return `hace ${minutes} min`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 48) return `hace ${hours} h`;
+  return `hace ${Math.round(hours / 24)} d`;
+}
+
+function Notifications({ onRead }: { onRead: () => void }) {
+  const [items, setItems] = useState<AppNotification[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    marketService
+      .notifications(false, 30)
+      .then(setItems)
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const markAll = async () => {
+    try {
+      await marketService.markAllRead();
+      setItems((current) =>
+        current.map((n) => ({
+          ...n,
+          readAt: n.readAt ?? new Date().toISOString(),
+        })),
+      );
+      onRead();
+    } catch {
+      /* la campana no debe romper la sesión si el backend no responde */
+    }
+  };
+
+  const markOne = async (item: AppNotification) => {
+    if (item.readAt) return;
+    try {
+      await marketService.markRead(item.id);
+      setItems((current) =>
+        current.map((n) =>
+          n.id === item.id
+            ? { ...n, readAt: new Date().toISOString() }
+            : n,
+        ),
+      );
+      onRead();
+    } catch {
+      /* idem */
+    }
+  };
 
   return (
     <div
-      className="absolute right-0 top-full mt-2 w-80 bg-surface rounded-xl shadow-xl border border-gray-200 z-40"
+      className="absolute right-0 top-full mt-2 w-96 bg-surface rounded-xl shadow-xl border border-gray-200 z-40"
       onClick={(e) => e.stopPropagation()}
     >
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
         <span className="font-semibold text-sm text-gray-900">Notificaciones</span>
         <button
-          onClick={onClose}
+          onClick={markAll}
           className="text-xs text-amber-600 hover:text-amber-700 font-medium"
         >
           Marcar todo como leído
         </button>
       </div>
-      <div className="divide-y divide-gray-50">
-        {items.map((n) => (
-          <div
-            key={n.title}
-            className="flex gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors"
-          >
-            <div
-              className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${n.color}`}
-            >
-              <n.icon size={14} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-800 truncate">{n.title}</p>
-              <p className="text-xs text-gray-500 truncate mt-0.5">{n.sub}</p>
-            </div>
-            <span className="text-xs text-gray-400 shrink-0">{n.time}</span>
+      <div className="max-h-96 overflow-y-auto divide-y divide-gray-50">
+        {loading && (
+          <div className="px-4 py-6 text-center text-xs text-gray-400">
+            Cargando…
           </div>
-        ))}
+        )}
+        {!loading && items.length === 0 && (
+          <div className="px-4 py-6 text-center text-xs text-gray-400">
+            Sin notificaciones
+          </div>
+        )}
+        {items.map((n) => {
+          const meta = NOTIFICATION_META[n.severity] ?? NOTIFICATION_META.info;
+          return (
+            <button
+              key={n.id}
+              onClick={() => markOne(n)}
+              className={`w-full text-left flex gap-3 px-4 py-3 hover:bg-gray-50 transition-colors ${
+                n.readAt ? "opacity-60" : ""
+              }`}
+            >
+              <div
+                className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${meta.color}`}
+              >
+                <meta.Icon size={14} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-800">{n.title}</p>
+                {n.body && (
+                  <p className="text-xs text-gray-500 mt-0.5 whitespace-pre-line">
+                    {n.body}
+                  </p>
+                )}
+                <p className="text-[11px] text-gray-400 mt-1">
+                  {relativeTime(n.createdAt)}
+                </p>
+              </div>
+              {!n.readAt && (
+                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" />
+              )}
+            </button>
+          );
+        })}
       </div>
-      <div className="px-4 py-2.5 border-t border-gray-100">
-        <button className="text-xs text-gray-500 hover:text-gray-700 w-full text-center">
-          Ver todas las notificaciones
-        </button>
+      <div className="px-4 py-2.5 border-t border-gray-100 text-center text-[11px] text-gray-400">
+        La ingesta de catálogos corre a diario a las 3:00 a. m.
       </div>
     </div>
   );
@@ -410,7 +464,21 @@ function TopBar({
 }) {
   const [notifOpen, setNotifOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
+  const [unread, setUnread] = useState(0);
   const { theme, setTheme, mode, setMode } = useTheme();
+
+  const refreshUnread = useCallback(() => {
+    marketService
+      .notifications(true, 50)
+      .then((items) => setUnread(items.length))
+      .catch(() => setUnread(0));
+  }, []);
+
+  useEffect(() => {
+    refreshUnread();
+    const timer = setInterval(refreshUnread, 60_000);
+    return () => clearInterval(timer);
+  }, [refreshUnread]);
 
   useEffect(() => {
     const handler = () => {
@@ -463,9 +531,13 @@ function TopBar({
             className="relative w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-500 transition-colors"
           >
             <Bell size={16} />
-            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-amber-400 rounded-full" />
+            {unread > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 flex items-center justify-center rounded-full bg-amber-400 text-[10px] font-bold text-white">
+                {unread > 9 ? "9+" : unread}
+              </span>
+            )}
           </button>
-          {notifOpen && <Notifications onClose={() => setNotifOpen(false)} />}
+          {notifOpen && <Notifications onRead={refreshUnread} />}
         </div>
 
         {/* User */}

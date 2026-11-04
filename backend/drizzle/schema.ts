@@ -4246,3 +4246,288 @@ export const pickerChatMessages = pgTable(
     }).onDelete('set null'),
   ],
 );
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Mercado · catálogos de la competencia (Radar de precios)
+//
+// Estas tablas son independientes del catálogo propio (`products`,
+// `product_variants`, `prices`…). Guardan la foto diaria de los catálogos de
+// Éxito, Carulla, Olímpica y D1 extraída desde sus APIs VTEX por el módulo
+// `market` del backend.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const competitorIngestStatusEnum = pgEnum(
+  'competitor_ingest_status_enum',
+  ['running', 'success', 'partial', 'failed'],
+);
+
+export const notificationSeverityEnum = pgEnum('notification_severity_enum', [
+  'info',
+  'warning',
+  'error',
+]);
+
+/**
+ * Un registro por supermercado competidor. `id` es el slug usado en todo el
+ * módulo (`exito`, `carulla`, `olimpica`, `d1`).
+ */
+export const competitorStores = pgTable('competitor_stores', {
+  id: varchar('id', { length: 32 }).primaryKey().notNull(),
+  name: varchar('name', { length: 120 }).notNull(),
+  baseUrl: text('base_url').notNull(),
+  categoryTreeLevels: integer('category_tree_levels').default(50).notNull(),
+  isActive: boolean('is_active').default(true).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' })
+    .defaultNow()
+    .notNull(),
+});
+
+/**
+ * Árbol de categorías tal como lo publica cada súper en
+ * `/api/catalog_system/pub/category/tree/:levels`.
+ *
+ * `idPath` es la ruta completa de IDs que exige VTEX para filtrar productos
+ * (`fq=C:/1/20/`), p. ej. `/1/20/`.
+ */
+export const competitorCategories = pgTable(
+  'competitor_categories',
+  {
+    id: bigserial({ mode: 'number' }).primaryKey().notNull(),
+    storeId: varchar('store_id', { length: 32 }).notNull(),
+    externalId: varchar('external_id', { length: 64 }).notNull(),
+    parentExternalId: varchar('parent_external_id', { length: 64 }),
+    idPath: text('id_path').notNull(),
+    name: text('name').notNull(),
+    level: integer('level').notNull(),
+    isLeaf: boolean('is_leaf').default(false).notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    unique('competitor_categories_store_external_key').on(
+      table.storeId,
+      table.externalId,
+    ),
+    index('idx_competitor_categories_store').on(table.storeId),
+    index('idx_competitor_categories_parent').on(
+      table.storeId,
+      table.parentExternalId,
+    ),
+    foreignKey({
+      columns: [table.storeId],
+      foreignColumns: [competitorStores.id],
+      name: 'competitor_categories_store_id_fkey',
+    }).onDelete('cascade'),
+  ],
+);
+
+/**
+ * Producto (a nivel de producto VTEX, no de SKU) con su precio vigente.
+ *
+ * El precio actual se duplica aquí para que el dashboard consulte sin hacer
+ * joins contra el histórico; `competitor_prices` guarda los cambios.
+ */
+export const competitorProducts = pgTable(
+  'competitor_products',
+  {
+    id: bigserial({ mode: 'number' }).primaryKey().notNull(),
+    storeId: varchar('store_id', { length: 32 }).notNull(),
+    externalId: varchar('external_id', { length: 64 }).notNull(),
+    plu: varchar('plu', { length: 64 }),
+    ean: varchar('ean', { length: 64 }),
+    name: text('name').notNull(),
+    brand: text('brand'),
+    url: text('url'),
+    imageUrl: text('image_url'),
+    measurementUnit: varchar('measurement_unit', { length: 32 }),
+    unitValue: numeric('unit_value', { precision: 14, scale: 3 }),
+    price: numeric('price', { precision: 14, scale: 2 }),
+    listPrice: numeric('list_price', { precision: 14, scale: 2 }),
+    isAvailable: boolean('is_available').default(true).notNull(),
+    availableQuantity: integer('available_quantity'),
+    isActive: boolean('is_active').default(true).notNull(),
+    firstSeenAt: timestamp('first_seen_at', {
+      withTimezone: true,
+      mode: 'string',
+    })
+      .defaultNow()
+      .notNull(),
+    lastSeenAt: timestamp('last_seen_at', {
+      withTimezone: true,
+      mode: 'string',
+    })
+      .defaultNow()
+      .notNull(),
+    priceUpdatedAt: timestamp('price_updated_at', {
+      withTimezone: true,
+      mode: 'string',
+    }),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    unique('competitor_products_store_external_key').on(
+      table.storeId,
+      table.externalId,
+    ),
+    index('idx_competitor_products_store_ean').on(table.storeId, table.ean),
+    index('idx_competitor_products_ean').on(table.ean),
+    index('idx_competitor_products_store_active').on(
+      table.storeId,
+      table.isActive,
+    ),
+    foreignKey({
+      columns: [table.storeId],
+      foreignColumns: [competitorStores.id],
+      name: 'competitor_products_store_id_fkey',
+    }).onDelete('cascade'),
+  ],
+);
+
+/**
+ * Ejecución de la ingesta de un súper (una por día y por tienda). Es la base
+ * del aviso de fallos: si `status` queda en `failed` o `partial`, se crea una
+ * notificación y el dashboard `/Mercado` muestra el banner.
+ */
+export const competitorIngestRuns = pgTable(
+  'competitor_ingest_runs',
+  {
+    id: bigserial({ mode: 'number' }).primaryKey().notNull(),
+    storeId: varchar('store_id', { length: 32 }).notNull(),
+    status: competitorIngestStatusEnum('status').default('running').notNull(),
+    trigger: varchar('trigger', { length: 16 }).default('scheduled').notNull(),
+    phase: varchar('phase', { length: 32 }).default('started').notNull(),
+    startedAt: timestamp('started_at', { withTimezone: true, mode: 'string' })
+      .defaultNow()
+      .notNull(),
+    finishedAt: timestamp('finished_at', {
+      withTimezone: true,
+      mode: 'string',
+    }),
+    lastProgressAt: timestamp('last_progress_at', {
+      withTimezone: true,
+      mode: 'string',
+    }),
+    durationMs: integer('duration_ms'),
+    totalEstimated: integer('total_estimated').default(0).notNull(),
+    categoriesSynced: integer('categories_synced').default(0).notNull(),
+    productsSeen: integer('products_seen').default(0).notNull(),
+    productsUpserted: integer('products_upserted').default(0).notNull(),
+    pricesChanged: integer('prices_changed').default(0).notNull(),
+    productsSkipped: integer('products_skipped').default(0).notNull(),
+    errorsCount: integer('errors_count').default(0).notNull(),
+    errorMessage: text('error_message'),
+  },
+  (table) => [
+    index('idx_competitor_ingest_runs_store_started').on(
+      table.storeId,
+      table.startedAt,
+    ),
+    index('idx_competitor_ingest_runs_status').on(table.status),
+    foreignKey({
+      columns: [table.storeId],
+      foreignColumns: [competitorStores.id],
+      name: 'competitor_ingest_runs_store_id_fkey',
+    }).onDelete('cascade'),
+  ],
+);
+
+/** Histórico de precios: solo se inserta una fila cuando el precio cambia. */
+export const competitorPrices = pgTable(
+  'competitor_prices',
+  {
+    id: bigserial({ mode: 'number' }).primaryKey().notNull(),
+    productId: bigint('product_id', { mode: 'number' }).notNull(),
+    runId: bigint('run_id', { mode: 'number' }),
+    price: numeric('price', { precision: 14, scale: 2 }).notNull(),
+    listPrice: numeric('list_price', { precision: 14, scale: 2 }),
+    isAvailable: boolean('is_available'),
+    availableQuantity: integer('available_quantity'),
+    capturedAt: timestamp('captured_at', { withTimezone: true, mode: 'string' })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index('idx_competitor_prices_product_captured').on(
+      table.productId,
+      table.capturedAt,
+    ),
+    foreignKey({
+      columns: [table.productId],
+      foreignColumns: [competitorProducts.id],
+      name: 'competitor_prices_product_id_fkey',
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [table.runId],
+      foreignColumns: [competitorIngestRuns.id],
+      name: 'competitor_prices_run_id_fkey',
+    }).onDelete('set null'),
+  ],
+);
+
+/** Relación N:M producto ↔ categoría (tal como la publica el súper). */
+export const competitorProductCategories = pgTable(
+  'competitor_product_categories',
+  {
+    productId: bigint('product_id', { mode: 'number' }).notNull(),
+    categoryId: bigint('category_id', { mode: 'number' }).notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.productId, table.categoryId],
+      name: 'competitor_product_categories_pkey',
+    }),
+    index('idx_competitor_product_categories_category').on(table.categoryId),
+    foreignKey({
+      columns: [table.productId],
+      foreignColumns: [competitorProducts.id],
+      name: 'competitor_product_categories_product_id_fkey',
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [table.categoryId],
+      foreignColumns: [competitorCategories.id],
+      name: 'competitor_product_categories_category_id_fkey',
+    }).onDelete('cascade'),
+  ],
+);
+
+/**
+ * Notificaciones transversales de la app (campana del topbar). La ingesta del
+ * mercado escribe aquí cuando un súper falla o queda incompleto.
+ */
+export const appNotifications = pgTable(
+  'app_notifications',
+  {
+    id: bigserial({ mode: 'number' }).primaryKey().notNull(),
+    severity: notificationSeverityEnum('severity').default('info').notNull(),
+    source: varchar('source', { length: 32 }).default('mercado').notNull(),
+    storeId: varchar('store_id', { length: 32 }),
+    runId: bigint('run_id', { mode: 'number' }),
+    title: text('title').notNull(),
+    body: text('body'),
+    actionUrl: text('action_url'),
+    readAt: timestamp('read_at', { withTimezone: true, mode: 'string' }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index('idx_app_notifications_unread').on(table.createdAt),
+    index('idx_app_notifications_source').on(table.source, table.createdAt),
+    foreignKey({
+      columns: [table.storeId],
+      foreignColumns: [competitorStores.id],
+      name: 'app_notifications_store_id_fkey',
+    }).onDelete('set null'),
+    foreignKey({
+      columns: [table.runId],
+      foreignColumns: [competitorIngestRuns.id],
+      name: 'app_notifications_run_id_fkey',
+    }).onDelete('set null'),
+  ],
+);

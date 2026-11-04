@@ -1,13 +1,18 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle, Download, ExternalLink,
-  Filter, Info, Search, Store, Target, TrendingDown, TrendingUp, X,
+  Filter, Info, Loader2, RefreshCw, Search, Store, Target,
+  TrendingDown, TrendingUp, X,
 } from 'lucide-react';
 import {
   Bar, BarChart, Cell, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
 import mercadoData from '../data/mercado/mercado.json';
 import { buildDoc, buildSearcher } from '../lib/search';
+import {
+  marketService,
+  type MarketStatus,
+} from '../services/market.service';
 
 // ─── tipos del dataset (generado por Vassago/scripts-agent/build_mercado_data.py) ──
 
@@ -477,6 +482,165 @@ function GapDistribution({ buckets }: { buckets: { bucket: string; count: number
   );
 }
 
+// ─── estado de la ingesta (backend → DB) ───────────────────────────────────
+
+function relativeTime(iso: string | null): string {
+  if (!iso) return '—';
+  const minutes = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  if (minutes < 60) return `hace ${minutes} min`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 48) return `hace ${hours} h`;
+  return `hace ${Math.round(hours / 24)} d`;
+}
+
+/**
+ * Aviso de la ingesta diaria de catálogos. Se muestra solo cuando hay algo que
+ * contar: una corrida en curso, un fallo/cobertura baja o catálogos sin cargar.
+ */
+function MarketIngestBanner() {
+  const [status, setStatus] = useState<MarketStatus | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      setStatus(await marketService.status());
+      setError(null);
+    } catch {
+      setError('No se pudo consultar el estado de la ingesta de catálogos.');
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  useEffect(() => {
+    const running = status?.stores.some((store) => store.isRunning);
+    const timer = setInterval(() => void load(), running ? 12_000 : 120_000);
+    return () => clearInterval(timer);
+  }, [status, load]);
+
+  const retry = async (storeIds: string[]) => {
+    setBusy(true);
+    try {
+      for (const storeId of storeIds) {
+        await marketService.trigger(storeId);
+      }
+      await load();
+    } catch {
+      setError('No se pudo iniciar la ingesta. ¿Está corriendo el backend?');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!status) return null;
+
+  const running = status.stores.filter((store) => store.isRunning);
+  const pending = status.stores.filter((store) => !store.lastRun && !store.isRunning);
+  const alerts = status.alerts;
+  const hasError = alerts.some((alert) => alert.health === 'error');
+
+  if (!running.length && !alerts.length && !pending.length) return null;
+
+  return (
+    <div className="space-y-2">
+      {error && (
+        <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+          <Info size={16} className="mt-0.5 shrink-0 text-gray-500" />
+          <p className="text-sm text-gray-600">{error}</p>
+        </div>
+      )}
+
+      {running.length > 0 && (
+        <div className="flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
+          <Loader2 size={16} className="mt-0.5 shrink-0 animate-spin text-blue-600" />
+          <div className="text-sm text-blue-900">
+            <p className="font-semibold">Actualizando catálogos de la competencia</p>
+            <p className="mt-0.5 text-blue-800">
+              {running
+                .map((store) => {
+                  const run = store.lastRun;
+                  const progress =
+                    run?.progressPct != null
+                      ? `${run.progressPct.toFixed(0)} %`
+                      : 'preparando…';
+                  return `${store.name}: ${progress}`;
+                })
+                .join(' · ')}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {alerts.length > 0 && (
+        <div
+          className={`flex items-start gap-3 rounded-xl border px-4 py-3 ${
+            hasError
+              ? 'border-red-200 bg-red-50'
+              : 'border-amber-200 bg-amber-50'
+          }`}
+        >
+          <AlertTriangle
+            size={16}
+            className={`mt-0.5 shrink-0 ${hasError ? 'text-red-600' : 'text-amber-600'}`}
+          />
+          <div className="flex-1 text-sm">
+            <p className={`font-semibold ${hasError ? 'text-red-900' : 'text-amber-900'}`}>
+              {hasError
+                ? 'Algunas ingestas de catálogo fallaron'
+                : 'Ingestas incompletas o desactualizadas'}
+            </p>
+            <ul className="mt-1 space-y-0.5">
+              {alerts.map((alert) => (
+                <li
+                  key={alert.storeId}
+                  className={hasError ? 'text-red-800' : 'text-amber-800'}
+                >
+                  <strong>{alert.storeName}</strong>: {alert.message ?? alert.title}
+                  {alert.startedAt && (
+                    <span className="opacity-70"> ({relativeTime(alert.startedAt)})</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <button
+            onClick={() => retry(alerts.map((alert) => alert.storeId))}
+            disabled={busy}
+            className="flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-300 bg-surface px-2.5 py-1.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+          >
+            <RefreshCw size={12} className={busy ? 'animate-spin' : undefined} />
+            Reintentar
+          </button>
+        </div>
+      )}
+
+      {pending.length > 0 && (
+        <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+          <Info size={16} className="mt-0.5 shrink-0 text-gray-500" />
+          <div className="flex-1 text-sm text-gray-700">
+            <p>
+              Aún no hay catálogos cargados para{' '}
+              <strong>{pending.map((store) => store.name).join(', ')}</strong>. La ingesta
+              automática corre todos los días a las 3:00 a. m.
+            </p>
+          </div>
+          <button
+            onClick={() => retry(pending.map((store) => store.id))}
+            disabled={busy}
+            className="flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-300 bg-surface px-2.5 py-1.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+          >
+            <RefreshCw size={12} className={busy ? 'animate-spin' : undefined} />
+            Cargar ahora
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── vista ──────────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 20;
@@ -635,6 +799,8 @@ export default function Mercado() {
           </div>
         </div>
       </div>
+
+      <MarketIngestBanner />
 
       {/* ── Buscador global de productos ───────── */}
       <div className="relative w-full max-w-xl">
