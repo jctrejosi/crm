@@ -79,16 +79,18 @@ function Test-Tcp([string]$Machine, [int]$Port) {
     } catch { return $false } finally { $client.Close() }
 }
 
-function Wait-Port([int]$Port, [string]$What) {
-    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+function Wait-Port([int]$Port, [string]$What, [int]$Seconds = 0) {
+    if ($Seconds -le 0) { $Seconds = $TimeoutSeconds }
+    $deadline = (Get-Date).AddSeconds($Seconds)
     while ((Get-Date) -lt $deadline) {
         if (Test-Tcp '127.0.0.1' $Port) {
             Write-Host ("  [ok] {0} -> puerto {1}" -f $What, $Port)
-            return
+            return $true
         }
         Start-Sleep -Milliseconds 500
     }
-    throw ("'{0}' no respondio en el puerto {1}. Revise {2}" -f $What, $Port, $logs)
+    Write-Host ("  [!]  {0} no respondio en el puerto {1}" -f $What, $Port) -ForegroundColor Yellow
+    return $false
 }
 
 # PowerShell 5.1 convierte stderr nativo en error: un sondeo fallido no debe
@@ -441,9 +443,13 @@ try {
 
     Write-Host ''
     Write-Host 'Esperando servicios...'
+    $down = @()
     foreach ($app in $selected) {
         foreach ($port in $AppPorts[$app]) {
-            Wait-Port $port (Get-PortDisplay $app $port).Label
+            $display = Get-PortDisplay $app $port
+            # El backend compila en el primer arranque: mas margen que las webs.
+            $seconds = if ($app -eq 'backend') { [Math]::Max($TimeoutSeconds, 600) } else { $TimeoutSeconds }
+            if (-not (Wait-Port $port $display.Label $seconds)) { $down += $app }
         }
     }
 
@@ -452,10 +458,17 @@ try {
     foreach ($app in $selected) {
         foreach ($port in $AppPorts[$app]) {
             $display = Get-PortDisplay $app $port
-            Write-Host ("  {0,-30} {1}" -f $display.Label, $display.Url)
+            $state = if (Test-Tcp '127.0.0.1' $port) { $display.Url } else { 'NO responde (ver logs)' }
+            Write-Host ("  {0,-30} {1}" -f $display.Label, $state)
         }
     }
     Write-Host "  Registros                       $logs"
+    if ($down.Count) {
+        Write-Host ''
+        Write-Host ("Servicios sin respuesta: {0}" -f (($down | Select-Object -Unique) -join ', ')) -ForegroundColor Yellow
+        Write-Host '  El resto queda arriba; los que fallen se pueden reintentar sin cerrar esto:' -ForegroundColor Yellow
+        Write-Host ("  node dev.js --{0}" -f (($down | Select-Object -Unique) -join ' --')) -ForegroundColor Yellow
+    }
     Write-Host ''
     Write-Host 'Mantenga esta ventana abierta. Pulse Q para detener los servicios (incluye PostgreSQL).'
 

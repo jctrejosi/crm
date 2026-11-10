@@ -1153,6 +1153,19 @@ function ensureNodeDeps(svc) {
 
 // ── Arranque ────────────────────────────────────────────────
 
+/** Comando de arranque para un servicio. En Windows `npm.cmd` es un batch: si
+ *  se interrumpe, cmd.exe queda en "¿Desea terminar el trabajo por lotes
+ *  (S/N)?" y el siguiente arranque se queda mudo (log vacío, puerto cerrado).
+ *  Lanzar `npm-cli.js` con este mismo node evita el batch por completo y
+ *  garantiza que se usa el npm de este node, no el de otro perfil del PATH. */
+function nodeLaunchCommand(svc, cmd) {
+  if (IS_WIN && svc.kind === "node" && svc.install[0] === "npm") {
+    const cli = path.join(path.dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js");
+    if (fs.existsSync(cli)) return { file: process.execPath, args: [cli, ...cmd.slice(1)], shell: false };
+  }
+  return { file: cmd[0], args: cmd.slice(1), shell: IS_WIN && svc.kind === "node" };
+}
+
 function startService(svc, mode, opts = {}) {
   const color = C[svc.name] || "";
   console.log(`${color}[${svc.name}]${C.reset} ▶ puerto ${svc.port}`);
@@ -1197,17 +1210,38 @@ function startService(svc, mode, opts = {}) {
   sleepSync(500);
 
   const fd = openLog(svc.name);
-  const child = spawn(cmd[0], cmd.slice(1), {
+  const launch = nodeLaunchCommand(svc, cmd);
+  // Deja constancia en el log de qué se lanzó y desde dónde: si el proceso muere
+  // sin escribir nada (p. ej. npm bloqueado en Windows), esta línea lo delata.
+  try {
+    fs.writeSync(fd, `[dev.js] ejecutando: ${[launch.file, ...launch.args].join(" ")}  (cwd: ${svc.dir})\n`);
+  } catch {
+    /* sin log */
+  }
+  const env = { ...process.env, ...extraEnv };
+  if (IS_WIN && svc.kind === "node") {
+    // El PATH del equipo puede traer el npm/pnpm de otro usuario; anteponer la
+    // carpeta del node que ejecuta el lanzador garantiza usar este node.
+    env.PATH = `${path.dirname(process.execPath)};${env.PATH || ""}`;
+  }
+  const child = spawn(launch.file, launch.args, {
     cwd: path.join(ROOT, svc.dir),
     stdio: ["ignore", fd, fd],
     detached: true,
-    env: { ...process.env, ...extraEnv },
-    // npm/pnpm necesitan shell en Windows; el python del venv no (su ruta
-    // puede llevar espacios y con shell se rompería).
-    shell: IS_WIN && svc.kind === "node",
+    env,
+    shell: launch.shell,
     windowsHide: true,
   });
-  child.on("error", (err) => console.error(`${color}[${svc.name}]${C.reset} ✘ ${err.message}`));
+  child.on("error", (err) => {
+    console.error(`${color}[${svc.name}]${C.reset} ✘ ${err.message}`);
+    try { fs.writeSync(fd, `[dev.js] error al lanzar: ${err.message}\n`); } catch { /* sin log */ }
+  });
+  child.on("exit", (code, signal) => {
+    try { fs.writeSync(fd, `[dev.js] proceso terminó: code=${code} signal=${signal}\n`); } catch { /* sin log */ }
+    if (code !== 0 && code !== null) {
+      console.warn(`${color}[${svc.name}]${C.reset} ⚠️  el proceso terminó (código ${code}); ver logs/${svc.name}.log`);
+    }
+  });
   child.unref();
   return child.pid;
 }
@@ -1358,7 +1392,10 @@ async function main() {
 
   for (const svc of services) {
     if (svc.kind === "docker" || !started[svc.name]) continue;
-    const up = await waitForPort(svc.port, 180000);
+    // NestJS compila en el primer arranque; en un VPS con antivirus puede tardar
+    // varios minutos, así que el backend tiene más margen que las webs.
+    const timeout = svc.name === "backend" ? 420000 : 240000;
+    const up = await waitForPort(svc.port, timeout);
     if (up) {
       console.log(`${C[svc.name] || ""}[${svc.name}]${C.reset} ✅ listo`);
       continue;
