@@ -11,6 +11,8 @@
 #   Activar-Desarrollo.bat -Restore                 restaura analytics si esta vacia
 #   Activar-Desarrollo.bat -BackupDb               vuelca la BD operativa (crm) a backups/ y sale
 #   Activar-Desarrollo.bat -RestoreDb              restaura la BD operativa (pg_restore --clean) y arranca
+#   Activar-Desarrollo.bat -Init                    primer arranque desde cero: instala dependencias,
+#                                                   crea la base y la restaura desde backups/ si esta vacia
 #   Activar-Desarrollo.bat -Stop                    detiene todo (incluye PostgreSQL)
 #   Activar-Desarrollo.bat -NoPersist               no guarda PATH/DOCKER_HOST del usuario
 #   Activar-Desarrollo.bat -DockerDesktopPath "C:\ruta\Docker Desktop.exe"  ruta manual
@@ -25,6 +27,7 @@ param(
     [switch]$Restore,
     [switch]$BackupDb,
     [switch]$RestoreDb,
+    [switch]$Init,
     [switch]$Stop
 )
 $ErrorActionPreference = 'Stop'
@@ -407,7 +410,7 @@ try {
         try {
             $names = & $docker.Path ps -a --filter 'name=crm_postgres' --format '{{.Names}}' 2>$null
         } finally { $ErrorActionPreference = $previous }
-        if (-not (@($names) -contains 'crm_postgres')) {
+        if (-not (@($names) -contains 'crm_postgres') -and -not $Init) {
             Write-Host 'Aviso: este motor no tiene crm_postgres (volumen nuevo). Se crea vacia.' -ForegroundColor Yellow
             Write-Host '       Si el panel sale sin datos, primero levante el ecommerce y luego: node dev.js --migrate'
             Write-Host '       (o cree solo el esquema con "pnpm db:push" dentro de backend).'
@@ -420,6 +423,11 @@ try {
     if ($Restore) {
         if ($selected -notcontains 'db') { throw '-Restore actua sobre la base de datos: agregue db a -Apps.' }
         $devArgs += '--restore'
+    }
+    if ($Init) {
+        if ($selected -contains 'db' -and -not $docker.Ok) { throw "Docker no esta disponible: $($docker.Detail)." }
+        Write-Host 'Modo init: instalando dependencias y dejando la base de datos lista...'
+        $devArgs += '--init'
     }
     foreach ($app in $selected) { $devArgs += "--$app" }
 

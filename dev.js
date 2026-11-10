@@ -20,6 +20,7 @@
  *   node crm/dev.js --restore       # al montar la BD, la restaura desde db/backups
  *   node crm/dev.js --backup-db     # vuelca la BD operativa `crm` a backups/crm_<fecha>.dump
  *   node crm/dev.js --restore-db    # deja la BD `crm` como el respaldo (pg_restore --clean) y sale
+ *   node crm/dev.js --init          # primer arranque desde cero (dependencias + BD + respaldo)
  *   node crm/dev.js --migrate       # levanta todo y, al final, refresca la BD `crm`
  *                                   #   desde la del ecommerce (destructivo)
  *   node crm/dev.js --stop [flags]  # detiene lo levantado (o solo lo seleccionado)
@@ -90,6 +91,25 @@ const ML_SERVICES = new Set(["clustering", "xgboost", "uplift"]);
 
 const C = { db: "\x1b[36m", backend: "\x1b[31m", web: "\x1b[32m", ia: "\x1b[33m", clustering: "\x1b[35m", xgboost: "\x1b[34m", uplift: "\x1b[95m", reset: "\x1b[0m" };
 
+/** `--init`: revisa que las dependencias estén completas (no solo que exista
+ *  `node_modules`). Evita reinstalar siempre, que reescribiría los lockfiles. */
+let FORCE_INSTALL = false;
+
+/** Binarios que deben existir para dar por instaladas las dependencias. */
+const NODE_REQUIRED_BINS = { backend: ["nest", "dotenvx"], web: ["vite"] };
+
+/** ¿Están las dependencias del servicio (node_modules + binarios clave)? */
+function nodeDepsComplete(svc) {
+  const dir = path.join(ROOT, svc.dir);
+  if (!fs.existsSync(path.join(dir, "node_modules"))) return false;
+  const bins = NODE_REQUIRED_BINS[svc.name];
+  if (!bins) return true;
+  return bins.every((bin) => {
+    const base = path.join(dir, "node_modules", ".bin", bin);
+    return fs.existsSync(base) || fs.existsSync(`${base}.cmd`);
+  });
+}
+
 /** Flags `--x` reconocidos. Cualquier otro aborta (no se levanta nada). */
 const VALID_FLAGS = new Set([
   "--prod",
@@ -100,6 +120,7 @@ const VALID_FLAGS = new Set([
   "--migrate",
   "--backup-db",
   "--restore-db",
+  "--init",
   "--ml",
   ...SERVICES.map((s) => `--${s.name}`),
 ]);
@@ -930,6 +951,33 @@ async function runRestoreDb(file = null) {
   return (await restoreBackup(backup)) ? 0 : 1;
 }
 
+/** `--init`: deja la BD operativa lista desde cero. Si ya tiene datos no la
+toca; si esta vacia restaura el respaldo versionado de `backups/`. */
+async function initOperationalDb() {
+  if (!(await ensureOperationalDb())) return false;
+
+  if (dbIsInitialized() === true) {
+    console.log(`${C.db}[db]${C.reset} ℹ️  La BD ya tiene datos (${dbCounts()}); no se restaura nada.`);
+    return true;
+  }
+
+  const source = resolveBackupSource(null);
+  if (source.error) {
+    console.warn(`${C.db}[db]${C.reset} ⚠️  ${source.error}`);
+    console.warn(`${C.db}[db]${C.reset} ℹ️  Se levanta con la BD vacia; migra luego con: node dev.js --migrate`);
+    return true;
+  }
+
+  const backup = loadBackup(source);
+  if (backup.error) {
+    console.error(`${C.db}[db]${C.reset} ✘ ${backup.error}`);
+    return false;
+  }
+
+  console.log(`${C.db}[db]${C.reset} 📥 BD vacia: restaurando el respaldo versionado ${source.label}...`);
+  return restoreBackup(backup);
+}
+
 /** `node dev.js --backup-db`: vuelca la BD operativa `crm` a backups/. */
 async function runBackupDb() {
   if (!(await ensureOperationalDb())) return 1;
@@ -1082,7 +1130,12 @@ function ensurePnpm(color = "") {
 /** Instala dependencias del servicio si no están (node_modules). */
 function ensureNodeDeps(svc) {
   const dir = path.join(ROOT, svc.dir);
-  if (fs.existsSync(path.join(dir, "node_modules"))) return true;
+  const complete = nodeDepsComplete(svc);
+  if (complete && !FORCE_INSTALL) return true;
+  if (complete) {
+    console.log(`${C[svc.name] || ""}[${svc.name}]${C.reset} ✅ dependencias completas (--init)`);
+    return true;
+  }
   const color = C[svc.name] || "";
   if (svc.install[0] === "pnpm" && !ensurePnpm(color)) return false;
   console.log(`${color}[${svc.name}]${C.reset} 📦 instalando dependencias (${svc.install.join(" ")})...`);
@@ -1211,6 +1264,8 @@ function printHelp() {
       "  --backup-db  vuelca la BD operativa `crm` a backups/crm_<fecha>.dump (+ .sha256)",
       "  --restore-db deja la BD `crm` como el respaldo (pg_restore --clean) y sale",
       "               (--restore-db=<ruta> para un respaldo concreto)",
+      "  --init       primer arranque desde cero: instala dependencias, crea la base",
+      "               y, si esta vacia, la restaura desde backups/; luego arranca todo",
       "  --migrate    al terminar de levantar, restaura la BD operativa `crm` (:5437)",
       "               desde la del ecommerce (`ecommerce_postgres` :5432).",
       "               Destructivo: sobrescribe los datos locales del CRM.",
@@ -1252,6 +1307,7 @@ async function main() {
   const BACKUP_DB = argv.includes("--backup-db");
   const RESTORE_DB_ARG = argv.find((a) => a === "--restore-db" || a.startsWith("--restore-db="));
   const RESTORE_DB = Boolean(RESTORE_DB_ARG);
+  const INIT = argv.includes("--init");
   const RESTORE_DB_FILE =
     RESTORE_DB_ARG && RESTORE_DB_ARG.includes("=")
       ? RESTORE_DB_ARG.slice(RESTORE_DB_ARG.indexOf("=") + 1) || null
@@ -1269,6 +1325,8 @@ async function main() {
 
   if (STOP) return stopAll(services);
 
+  FORCE_INSTALL = INIT;
+
   // Tareas puntuales sobre la BD operativa: ejecutan y terminan (no levantan servicios).
   if (BACKUP_DB) process.exit(await runBackupDb());
   if (RESTORE_DB) process.exit(await runRestoreDb(RESTORE_DB_FILE));
@@ -1276,6 +1334,12 @@ async function main() {
   const dbSelected = services.some((s) => s.name === "db");
   if ((RESTORE || MIGRATE) && !dbSelected) {
     console.warn("⚠️  --restore/--migrate actúan sobre la BD: sin --db no harán nada.");
+  }
+
+  // `--init` (primer arranque desde cero): deja la BD lista antes de montar los
+  // servicios, para que el backend no arranque contra una base sin esquema.
+  if (INIT && dbSelected) {
+    if (!(await initOperationalDb())) process.exit(1);
   }
 
   fs.mkdirSync(LOGS_DIR, { recursive: true });
