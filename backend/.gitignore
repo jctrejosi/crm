@@ -37,12 +37,10 @@ lerna-debug.log*
 !.vscode/launch.json
 !.vscode/extensions.json
 
-# dotenv environment variable files
-.env
-.env.development.local
-.env.test.local
-.env.production.local
-.env.local
+# dotenv: los .env de desarrollo SI se versionan (ver .gitignore de la raiz),
+# para que `git pull` deje el backend listo en el servidor Windows.
+# Solo se excluyen las copias locales de seguridad.
+*.env.bak*
 
 # temp directory
 .temp

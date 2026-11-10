@@ -4,10 +4,8 @@ node_modules/
 dist/
 build/
 
-# Archivos de entorno
-.env
-.env.local
-.env.*.local
+# Archivos de entorno: el .env de desarrollo se versiona (solo URLs locales).
+*.env.bak*
 
 # Logs
 *.log
