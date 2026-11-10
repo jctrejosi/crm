@@ -820,6 +820,7 @@ async function restoreBackup(backup) {
   const fd = openLog("db");
   let status = 1;
   let failure = null;
+  let startedAt = 0;
   try {
     fs.writeFileSync(hostTmp, backup.buffer);
 
@@ -837,7 +838,9 @@ async function restoreBackup(backup) {
     }
 
     if (!failure) {
-      console.log(`${C.db}[db]${C.reset} ♻️  Aplicando pg_restore sobre "${DST_DB}" (--clean --if-exists)...`);
+      const mb = (backup.buffer.length / (1024 * 1024)).toFixed(1);
+      console.log(`${C.db}[db]${C.reset} ♻️  Aplicando pg_restore sobre "${DST_DB}" (${mb} MB, --clean --if-exists)...`);
+      startedAt = Date.now();
       const args = [
         "exec", DST_CONTAINER,
         "pg_restore", "-U", "postgres", "-d", DST_DB,
@@ -897,6 +900,8 @@ async function restoreBackup(backup) {
       `${C.db}[db]${C.reset} ⚠️  pg_restore reporto avisos (codigo ${status}); la base quedo con datos (ver logs/db.log).`,
     );
   }
+  const secs = startedAt ? ((Date.now() - startedAt) / 1000).toFixed(0) : null;
+  if (secs !== null) console.log(`${C.db}[db]${C.reset} ⏱  pg_restore termino en ${secs} s`);
   console.log(`${C.db}[db]${C.reset} ✅ Respaldo restaurado — ${dbCounts()}`);
   return true;
 }
@@ -952,15 +957,17 @@ async function runRestoreDb(file = null) {
 }
 
 /** `--init`: deja la BD operativa lista desde cero. Si ya tiene datos no la
-toca; si esta vacia restaura el respaldo versionado de `backups/`. */
+ *  toca; si esta vacia restaura el respaldo versionado de `backups/`. */
 async function initOperationalDb() {
+  console.log(`${C.db}[db]${C.reset} 🔎 Verificando PostgreSQL y la base "${DST_DB}"...`);
   if (!(await ensureOperationalDb())) return false;
 
   if (dbIsInitialized() === true) {
-    console.log(`${C.db}[db]${C.reset} ℹ️  La BD ya tiene datos (${dbCounts()}); no se restaura nada.`);
+    console.log(`${C.db}[db]${C.reset} ✅ La BD ya tiene datos (${dbCounts()}); no se restaura nada.`);
     return true;
   }
 
+  console.log(`${C.db}[db]${C.reset} 🆕 La BD "${DST_DB}" esta vacia: se restaura desde backups/...`);
   const source = resolveBackupSource(null);
   if (source.error) {
     console.warn(`${C.db}[db]${C.reset} ⚠️  ${source.error}`);
@@ -974,7 +981,9 @@ async function initOperationalDb() {
     return false;
   }
 
-  console.log(`${C.db}[db]${C.reset} 📥 BD vacia: restaurando el respaldo versionado ${source.label}...`);
+  const mb = (backup.buffer.length / (1024 * 1024)).toFixed(1);
+  console.log(`${C.db}[db]${C.reset} 📦 ${source.label} (${backup.files.length} archivo(s), ${mb} MB)`);
+  if (backup.files.length > 1) console.log(`${C.db}[db]${C.reset} 🔗 Reensamblando partes y validando sha256...`);
   return restoreBackup(backup);
 }
 
@@ -1372,13 +1381,16 @@ async function main() {
 
   // `--init` (primer arranque desde cero): deja la BD lista antes de montar los
   // servicios, para que el backend no arranque contra una base sin esquema.
+  fs.mkdirSync(LOGS_DIR, { recursive: true });
+  console.log(`🧩 CRM — modo ${MODE.toUpperCase()} · ${services.map((s) => s.name).join(" + ")}`);
+  if (INIT) {
+    console.log("🧹 Modo init: dependencias → base de datos → servicios (cada paso se informa abajo)");
+  }
+  console.log("");
+
   if (INIT && dbSelected) {
     if (!(await initOperationalDb())) process.exit(1);
   }
-
-  fs.mkdirSync(LOGS_DIR, { recursive: true });
-  console.log(`🧩 CRM — modo ${MODE.toUpperCase()} · ${services.map((s) => s.name).join(" + ")}`);
-  console.log("");
 
   const started = {};
   if (dbSelected) {
