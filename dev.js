@@ -98,16 +98,31 @@ let FORCE_INSTALL = false;
 /** Binarios que deben existir para dar por instaladas las dependencias. */
 const NODE_REQUIRED_BINS = { backend: ["nest", "dotenvx"], web: ["vite"] };
 
-/** ¿Están las dependencias del servicio (node_modules + binarios clave)? */
-function nodeDepsComplete(svc) {
+/** Dependencias declaradas en package.json que no están en node_modules.
+ *  Un `node_modules` puede existir y aun así estar incompleto (copiado de otra
+ *  máquina o instalación interrumpida): eso hacía fallar la compilación del
+ *  backend con "Cannot find module '@nestjs/schedule'" y nadie lo detectaba. */
+function missingNodeDeps(svc) {
   const dir = path.join(ROOT, svc.dir);
-  if (!fs.existsSync(path.join(dir, "node_modules"))) return false;
-  const bins = NODE_REQUIRED_BINS[svc.name];
-  if (!bins) return true;
-  return bins.every((bin) => {
-    const base = path.join(dir, "node_modules", ".bin", bin);
-    return fs.existsSync(base) || fs.existsSync(`${base}.cmd`);
-  });
+  const nm = path.join(dir, "node_modules");
+  const missing = [];
+  if (!fs.existsSync(nm)) return ["node_modules"];
+
+  for (const bin of NODE_REQUIRED_BINS[svc.name] || []) {
+    if (!fs.existsSync(path.join(nm, ".bin", bin)) && !fs.existsSync(path.join(nm, ".bin", `${bin}.cmd`))) {
+      missing.push(`.bin/${bin}`);
+    }
+  }
+
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8"));
+    for (const dep of Object.keys(pkg.dependencies || {})) {
+      if (!fs.existsSync(path.join(nm, dep))) missing.push(dep);
+    }
+  } catch {
+    missing.push("package.json");
+  }
+  return missing;
 }
 
 /** Flags `--x` reconocidos. Cualquier otro aborta (no se levanta nada). */
@@ -1136,23 +1151,37 @@ function ensurePnpm(color = "") {
   return false;
 }
 
-/** Instala dependencias del servicio si no están (node_modules). */
+/** Instala dependencias del servicio si no están o si quedaron incompletas. */
 function ensureNodeDeps(svc) {
   const dir = path.join(ROOT, svc.dir);
-  const complete = nodeDepsComplete(svc);
-  if (complete && !FORCE_INSTALL) return true;
-  if (complete) {
+  const missing = missingNodeDeps(svc);
+  if (!missing.length && !FORCE_INSTALL) return true;
+  if (!missing.length) {
     console.log(`${C[svc.name] || ""}[${svc.name}]${C.reset} ✅ dependencias completas (--init)`);
     return true;
   }
   const color = C[svc.name] || "";
+  const sample = missing.slice(0, 3).join(", ") + (missing.length > 3 ? "…" : "");
   if (svc.install[0] === "pnpm" && !ensurePnpm(color)) return false;
-  console.log(`${color}[${svc.name}]${C.reset} 📦 instalando dependencias (${svc.install.join(" ")})...`);
+  console.log(`${color}[${svc.name}]${C.reset} 📦 faltan ${missing.length} dependencia(s) (${sample}); instalando...`);
+  console.log(`${color}[${svc.name}]${C.reset} 📦 ${svc.install.join(" ")}...`);
+  // npm 11 reescribe el `yarn.lock` legacy del repo al instalar. Se conserva el
+  // original para no dejar el clon sucio (rompe `git pull` en el servidor).
+  const legacyLock = path.join(dir, "yarn.lock");
+  const legacyBefore = fs.existsSync(legacyLock) ? fs.readFileSync(legacyLock) : null;
   const r = spawnSync(
     IS_WIN ? shellCmd(svc.install[0], svc.install.slice(1)) : svc.install[0],
     IS_WIN ? [] : svc.install.slice(1),
     { cwd: dir, stdio: "inherit", shell: IS_WIN }, // npm/pnpm son .cmd en Windows
   );
+  if (legacyBefore) {
+    try {
+      const after = fs.readFileSync(legacyLock);
+      if (!after.equals(legacyBefore)) fs.writeFileSync(legacyLock, legacyBefore);
+    } catch {
+      /* si no se puede, no es crítico */
+    }
+  }
   if (r.status !== 0) {
     console.error(`${color}[${svc.name}]${C.reset} ✘ falló: ${svc.install.join(" ")}`);
     return false;
@@ -1231,7 +1260,11 @@ function startService(svc, mode, opts = {}) {
   if (IS_WIN && svc.kind === "node") {
     // El PATH del equipo puede traer el npm/pnpm de otro usuario; anteponer la
     // carpeta del node que ejecuta el lanzador garantiza usar este node.
-    env.PATH = `${path.dirname(process.execPath)};${env.PATH || ""}`;
+    // OJO: en Windows la variable suele llamarse `Path`; crear además `PATH`
+    // deja dos entradas y Windows se queda con una sola, perdiendo System32
+    // (síntoma: "chcp no se reconoce como un comando interno o externo").
+    const pathKey = Object.keys(env).find((k) => k.toUpperCase() === "PATH") || "PATH";
+    env[pathKey] = `${path.dirname(process.execPath)};${env[pathKey] || ""}`;
   }
   const child = spawn(launch.file, launch.args, {
     cwd: path.join(ROOT, svc.dir),
