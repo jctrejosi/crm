@@ -8,6 +8,15 @@ imágenes.
 - `crm_<AAAA-MM-DD_HHmm>.dump` — volcado binario
 - `crm_<AAAA-MM-DD_HHmm>.dump.sha256` — suma para verificar integridad
 
+También se admite un respaldo **troceado** (para versionarlo en git, igual que
+el ecommerce):
+
+- `crm_<fecha>.dump.part-000`, `.part-001`, … — volcado partido en trozos de 2 MiB
+- `crm_<fecha>.dump.sha256` — hash del volcado **completo** (no de cada parte)
+
+`-RestoreDb` / `--restore-db` reensambla las partes y valida el `sha256` de forma
+transparente; no hay que unirlas a mano.
+
 ## Restaurar
 
 ```powershell

@@ -642,14 +642,33 @@ function dbCounts() {
   return out || "(no se pudieron contar las tablas)";
 }
 
-/** Respaldos propios en `backups/`, del más reciente al más antiguo. */
+/** Respaldos propios en `backups/`, del más reciente al más antiguo.
+ *  Cada respaldo puede ser un único `crm_<fecha>.dump` o un grupo de partes
+ *  `crm_<fecha>.dump.part-NNN` (troceado para git). Devuelve `{label,dir,files}`. */
 function listLocalBackups() {
   if (!fs.existsSync(CRM_BACKUPS_DIR)) return [];
-  return fs
-    .readdirSync(CRM_BACKUPS_DIR, { withFileTypes: true })
-    .filter((e) => e.isFile() && /\.dump$/i.test(e.name))
-    .map((e) => path.join(CRM_BACKUPS_DIR, e.name))
-    .sort((a, b) => path.basename(b).localeCompare(path.basename(a)));
+  const groups = new Map();
+  for (const e of fs.readdirSync(CRM_BACKUPS_DIR, { withFileTypes: true })) {
+    if (!e.isFile()) continue;
+    const match = e.name.match(/^(crm_.+?\.dump)(?:\.part-\d+)?$/i);
+    if (!match) continue;
+    const base = match[1];
+    if (!groups.has(base)) groups.set(base, []);
+    groups.get(base).push(e.name);
+  }
+  return [...groups.entries()]
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .map(([base, names]) => {
+      const single = names.find((n) => n.toLowerCase() === base.toLowerCase());
+      const files = single
+        ? [single]
+        : names.filter((n) => /\.dump\.part-\d+$/i.test(n)).sort();
+      return {
+        label: path.relative(ROOT, path.join(CRM_BACKUPS_DIR, base)),
+        dir: CRM_BACKUPS_DIR,
+        files: files.map((n) => path.join(CRM_BACKUPS_DIR, n)),
+      };
+    });
 }
 
 /** Respaldo a restaurar. `explicit` es una ruta (--restore-db=<ruta>). */
@@ -657,7 +676,7 @@ function resolveBackupSource(explicit = null) {
   if (explicit) {
     const file = path.isAbsolute(explicit) ? explicit : path.join(ROOT, explicit);
     if (!fs.existsSync(file)) return { error: `No existe el archivo ${explicit}.` };
-    return { label: path.relative(ROOT, file), files: [file] };
+    return { label: path.relative(ROOT, file), dir: path.dirname(file), files: [file] };
   }
   const local = listLocalBackups();
   if (!local.length) {
@@ -665,14 +684,18 @@ function resolveBackupSource(explicit = null) {
       error: `No hay respaldos en ${path.relative(ROOT, CRM_BACKUPS_DIR)}/ (usa node dev.js --backup-db).`,
     };
   }
-  return { label: path.relative(ROOT, local[0]), files: [local[0]] };
+  return local[0];
 }
 
-/** Lee el respaldo y valida su sha256 (el que escribe --backup-db). */
+/** Lee el respaldo (reensamblando partes) y valida su sha256. */
 function loadBackup(source) {
   const buffer = Buffer.concat(source.files.map((f) => fs.readFileSync(f)));
-  const shaFile = `${source.files[0]}.sha256`;
-  if (fs.existsSync(shaFile)) {
+  // El hash se llama `crm_<fecha>.dump.sha256` (versionado) o `<archivo>.sha256`
+  // (lo que escribe --backup-db sobre un dump único).
+  const base = source.files[0].replace(/\.part-\d+$/i, "");
+  const candidates = [`${base}.sha256`, ...source.files.map((f) => `${f}.sha256`)];
+  const shaFile = candidates.find((p) => fs.existsSync(p));
+  if (shaFile) {
     const expected = fs.readFileSync(shaFile, "utf8").trim().split(/\s+/)[0];
     const actual = crypto.createHash("sha256").update(buffer).digest("hex");
     if (expected && expected !== actual) {
@@ -689,7 +712,7 @@ function restoreBackup(backup, { drop = false } = {}) {
   const hostTmp = path.join(LOGS_DIR, "crm_restore.dump");
   const relTmp = path.relative(ROOT, hostTmp).split(path.sep).join("/");
   const containerTmp = "/tmp/crm_restore.dump";
-  const { fd } = openLog("db");
+  const fd = openLog("db");
   let status = 1;
   let failure = null;
   try {
@@ -819,7 +842,7 @@ async function runBackupDb() {
 
   console.log(`${C.db}[db]${C.reset} 💾 Volcando la base "${DST_DB}" (solo datos; la réplica analytics no entra)...`);
 
-  const { fd } = openLog("db");
+  const fd = openLog("db");
   try {
     const dump = spawnSync(
       "docker",
