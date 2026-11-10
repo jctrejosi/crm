@@ -18,7 +18,7 @@
     "sync-schema": "node scripts/sync-schema.js"
   },
   "dependencies": {
-    "@nestjs/cli": "11.0.24",
+    "@nestjs/cli": "12.0.12",
     "@nestjs/common": "11.1.28",
     "@nestjs/config": "4.0.4",
     "@nestjs/core": "11.1.28",
