@@ -10,7 +10,7 @@
 #   Activar-Desarrollo.bat -Apps db,backend,web     elige servicios
 #   Activar-Desarrollo.bat -Restore                 restaura analytics si esta vacia
 #   Activar-Desarrollo.bat -BackupDb               vuelca la BD operativa (crm) a backups/ y sale
-#   Activar-Desarrollo.bat -RestoreDb              restaura la BD operativa (drop + create) y arranca
+#   Activar-Desarrollo.bat -RestoreDb              restaura la BD operativa (pg_restore --clean) y arranca
 #   Activar-Desarrollo.bat -Stop                    detiene todo (incluye PostgreSQL)
 #   Activar-Desarrollo.bat -NoPersist               no guarda PATH/DOCKER_HOST del usuario
 #   Activar-Desarrollo.bat -DockerDesktopPath "C:\ruta\Docker Desktop.exe"  ruta manual
@@ -389,7 +389,7 @@ try {
     }
     if ($RestoreDb) {
         if (-not $docker.Ok) { throw "Docker no esta disponible: $($docker.Detail)." }
-        Write-Host 'Restaurando la base de datos operativa (crm) desde el respaldo (drop + create)...'
+        Write-Host 'Restaurando la base de datos operativa (crm) desde el respaldo (pg_restore --clean)...'
         Push-Location $root
         try { & $node $devJs --restore-db; $code = $LASTEXITCODE } finally { Pop-Location }
         if ($code -ne 0) {

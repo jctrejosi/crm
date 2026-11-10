@@ -19,7 +19,7 @@
  *   node crm/dev.js --ml            # solo clustering + xgboost + uplift
  *   node crm/dev.js --restore       # al montar la BD, la restaura desde db/backups
  *   node crm/dev.js --backup-db     # vuelca la BD operativa `crm` a backups/crm_<fecha>.dump
- *   node crm/dev.js --restore-db    # deja la BD `crm` como el respaldo (drop + create) y sale
+ *   node crm/dev.js --restore-db    # deja la BD `crm` como el respaldo (pg_restore --clean) y sale
  *   node crm/dev.js --migrate       # levanta todo y, al final, refresca la BD `crm`
  *                                   #   desde la del ecommerce (destructivo)
  *   node crm/dev.js --stop [flags]  # detiene lo levantado (o solo lo seleccionado)
@@ -604,7 +604,7 @@ function migrateOperationalDb() {
 // respaldos en db/backups y la operativa se reconstruye con esto o con --migrate.
 
 /** Corre psql en el contenedor de la operativa y devuelve { status, stdout, stderr }. */
-function psqlOperational(sql, { database = DST_DB, tuples = false } = {}) {
+function psqlOperational(sql, { database = DST_DB, tuples = false, timeout = 30000 } = {}) {
   const args = [
     "exec", DST_CONTAINER,
     "psql", "-U", "postgres", "-d", database,
@@ -612,7 +612,90 @@ function psqlOperational(sql, { database = DST_DB, tuples = false } = {}) {
   ];
   if (tuples) args.push("-tAc", sql);
   else args.push("-c", sql);
-  return docker(args, { timeout: 30000 });
+  return docker(args, { timeout });
+}
+
+/** Ejecuta `docker …` volcando stdout+stderr al log y devuelve tambien el texto,
+ *  para poder explicar el fallo en pantalla sin abrir el archivo. */
+function dockerLogged(args, fd, { timeout = 900000 } = {}) {
+  const r = spawnSync("docker", args, {
+    cwd: ROOT,
+    encoding: "utf8",
+    maxBuffer: 64 * 1024 * 1024,
+    timeout,
+  });
+  const text = `${r.stdout || ""}${r.stderr || ""}`;
+  if (text.trim()) {
+    try {
+      fs.writeSync(fd, text.endsWith("\n") ? text : `${text}\n`);
+    } catch {
+      /* el log ya se cerro */
+    }
+  }
+  return { status: r.status, signal: r.signal, text };
+}
+
+/** Espera a que PostgreSQL acepte conexiones de verdad, no solo a que el puerto
+ *  este publicado: en un arranque en frio docker-proxy abre :5437 antes de que
+ *  el servidor termine de inicializar, y un `psql`/`pg_restore` lanzado en esa
+ *  ventana muere (codigo 137) dejando la base a medias. */
+async function waitForPg(database = "postgres", timeoutMs = 120000) {
+  const deadline = Date.now() + timeoutMs;
+  let last = "";
+  for (;;) {
+    const r = docker(
+      ["exec", DST_CONTAINER, "pg_isready", "-U", "postgres", "-d", database],
+      { timeout: 20000 },
+    );
+    if (r.status === 0) return true;
+    last = `${r.stdout || ""}${r.stderr || ""}`.trim().split("\n").filter(Boolean).pop() || "";
+    if (Date.now() > deadline) {
+      if (last) console.warn(`${C.db}[db]${C.reset} ⚠️  ${last}`);
+      return false;
+    }
+    // Si el contenedor se cayo o se reinicio, se intenta levantar de nuevo.
+    if (!containerRunning(DST_CONTAINER)) docker(["start", DST_CONTAINER], { timeout: 120000 });
+    await sleep(2000);
+  }
+}
+
+/** Deja lista la base operativa SIN recrearla: la crea solo si falta.
+ *  Reemplazar la base (drop + create) era el paso fragil en Windows, donde el
+ *  contenedor puede reiniciarse o ser matado (137) justo despues del DROP.
+ *  Devuelve el motivo del fallo, o null si la base existe y responde. */
+async function ensureDatabaseExists() {
+  const exists = () =>
+    psqlOperational(
+      `SELECT 1 FROM pg_database WHERE datname = '${DST_DB.replace(/'/g, "''")}'`,
+      { database: "postgres", tuples: true, timeout: 20000 },
+    );
+
+  let failure = null;
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    const check = exists();
+    if (check.status === 0) {
+      if ((check.stdout || "").trim() === "1") return null;
+      const create = psqlOperational(`CREATE DATABASE "${DST_DB}"`, {
+        database: "postgres",
+        timeout: 60000,
+      });
+      if (create.status === 0) return null;
+      const err = `${create.stderr || ""}${create.stdout || ""}`.trim();
+      // Dos procesos creando a la vez: si ya existe, sirve igual.
+      if (/already exists/i.test(err)) return null;
+      failure = `no se pudo crear la base "${DST_DB}" (codigo ${create.status})` +
+        (err ? `: ${err.split("\n").filter(Boolean).pop()}` : "");
+    } else {
+      const err = `${check.stderr || ""}${check.stdout || ""}`.trim();
+      failure = `PostgreSQL no acepto la consulta (codigo ${check.status})` +
+        (err ? `: ${err.split("\n").filter(Boolean).pop()}` : "");
+    }
+    if (attempt === 4) break;
+    console.warn(`${C.db}[db]${C.reset} ⚠️  ${failure} — reintento ${attempt}/3...`);
+    await sleep(3000 * attempt);
+    await waitForPg("postgres", 30000);
+  }
+  return failure;
 }
 
 /** Fecha local `YYYY-MM-DD_HHmm`, para nombrar los respaldos. */
@@ -707,8 +790,9 @@ function loadBackup(source) {
   return { ...source, buffer };
 }
 
-/** Copia el respaldo al contenedor y lo aplica con pg_restore. */
-function restoreBackup(backup, { drop = false } = {}) {
+/** Copia el respaldo al contenedor y lo aplica con `pg_restore --clean
+ *  --if-exists` sobre la base existente (sin DROP/CREATE DATABASE). */
+async function restoreBackup(backup) {
   const hostTmp = path.join(LOGS_DIR, "crm_restore.dump");
   const relTmp = path.relative(ROOT, hostTmp).split(path.sep).join("/");
   const containerTmp = "/tmp/crm_restore.dump";
@@ -718,60 +802,80 @@ function restoreBackup(backup, { drop = false } = {}) {
   try {
     fs.writeFileSync(hostTmp, backup.buffer);
 
-    if (drop) {
-      const del = psqlOperational(`DROP DATABASE IF EXISTS "${DST_DB}" WITH (FORCE)`, { database: "postgres" });
-      if (del.status !== 0) {
-        status = del.status;
-        failure = (del.stderr || "").trim() || "no se pudo borrar la base";
-      } else {
-        const create = psqlOperational(`CREATE DATABASE "${DST_DB}"`, { database: "postgres" });
-        if (create.status !== 0) {
-          status = create.status;
-          failure = (create.stderr || "").trim() || "no se pudo crear la base";
-        }
+    failure = await ensureDatabaseExists();
+
+    if (!failure && !(await waitForPg(DST_DB, 120000))) {
+      failure = `PostgreSQL no acepta conexiones en la base "${DST_DB}"`;
+    }
+
+    if (!failure) {
+      const cp = dockerLogged(["cp", relTmp, `${DST_CONTAINER}:${containerTmp}`], fd, { timeout: 120000 });
+      if (cp.status !== 0) {
+        failure = `no se pudo copiar el volcado al contenedor (codigo ${cp.status})`;
       }
     }
 
     if (!failure) {
-      const cp = spawnSync("docker", ["cp", relTmp, `${DST_CONTAINER}:${containerTmp}`], {
-        cwd: ROOT,
-        stdio: ["ignore", fd, fd],
-        timeout: 120000,
-      });
-      if (cp.status === 0) {
-        const args = [
-          "exec", DST_CONTAINER,
-          "pg_restore", "-U", "postgres", "-d", DST_DB,
-          "--no-owner", "--no-privileges",
-        ];
-        if (!drop) args.push("--clean", "--if-exists");
-        args.push(containerTmp);
-        const r = spawnSync("docker", args, {
-          stdio: ["ignore", fd, fd],
-          timeout: 900000,
-        });
-        status = r.status;
-        spawnSync("docker", ["exec", DST_CONTAINER, "rm", "-f", containerTmp], {
-          stdio: ["ignore", fd, fd],
-        });
-      } else {
-        status = cp.status;
-        failure = "no se pudo copiar el volcado al contenedor";
+      console.log(`${C.db}[db]${C.reset} ♻️  Aplicando pg_restore sobre "${DST_DB}" (--clean --if-exists)...`);
+      const args = [
+        "exec", DST_CONTAINER,
+        "pg_restore", "-U", "postgres", "-d", DST_DB,
+        "--no-owner", "--no-privileges", "--clean", "--if-exists",
+        containerTmp,
+      ];
+      // Hasta 3 pasadas: si el contenedor se reinicia o el proceso muere (137),
+      // --clean deja la base consistente y la siguiente pasada la completa.
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        const r = dockerLogged(args, fd, { timeout: 1800000 });
+        status = r.status === null ? 1 : r.status;
+        if (status === 0) break;
+        const interrupted = status === 137 || status === 143 || Boolean(r.signal);
+        if (!interrupted || attempt === 3) break;
+        console.warn(
+          `${C.db}[db]${C.reset} ⚠️  pg_restore se interrumpio (codigo ${status}); reintento ${attempt}/2...`,
+        );
+        await sleep(5000);
+        await waitForPg(DST_DB, 60000);
       }
     }
   } finally {
+    docker(["exec", DST_CONTAINER, "rm", "-f", containerTmp], { stdio: "ignore", timeout: 30000 });
     fs.closeSync(fd);
     fs.rmSync(hostTmp, { force: true });
   }
 
-  if (status !== 0) {
+  // La verdad la da la base, no el codigo de salida: pg_restore devuelve 1 si
+  // alguna sentencia aviso aunque los datos hayan quedado completos.
+  let initialized = dbIsInitialized();
+  if (initialized !== true && !failure) {
+    await waitForPg(DST_DB, 30000);
+    initialized = dbIsInitialized();
+  }
+  if (failure || initialized !== true) {
     console.warn(
-      `${C.db}[db]${C.reset} ⚠️  La restauración falló (código ${status}; detalle en logs/db.log).` +
+      `${C.db}[db]${C.reset} ⚠️  La restauracion fallo (codigo ${status}; detalle en logs/db.log).` +
         (failure ? ` ${failure}` : ""),
     );
+    if (status === 137 || status === 143) {
+      console.warn(
+        `${C.db}[db]${C.reset} 💡 El proceso fue matado dentro del contenedor (137 = SIGKILL).` +
+          " Si se repite, sube la memoria de Docker Desktop (Settings › Resources) a 6-8 GB y reintenta.",
+      );
+    }
+    const tail = tailLog("db", 20);
+    if (tail && tail.length) {
+      console.warn(`${C.db}[db]${C.reset} ── ultimas lineas de logs/db.log ──`);
+      tail.forEach((line) => console.warn(`   ${line}`));
+      console.warn(`${C.db}[db]${C.reset} ─────────────────────────────────────────`);
+    }
     return false;
   }
 
+  if (status !== 0) {
+    console.warn(
+      `${C.db}[db]${C.reset} ⚠️  pg_restore reporto avisos (codigo ${status}); la base quedo con datos (ver logs/db.log).`,
+    );
+  }
   console.log(`${C.db}[db]${C.reset} ✅ Respaldo restaurado — ${dbCounts()}`);
   return true;
 }
@@ -793,6 +897,10 @@ async function ensureOperationalDb() {
     console.error(`${C.db}[db]${C.reset} ✘ PostgreSQL no responde en :5437.`);
     return false;
   }
+  if (!(await waitForPg("postgres", 120000))) {
+    console.error(`${C.db}[db]${C.reset} ✘ PostgreSQL no acepta conexiones en :5437 (ver logs/db.log).`);
+    return false;
+  }
   return true;
 }
 
@@ -806,7 +914,7 @@ async function runRestoreDb(file = null) {
   }
 
   console.log(`${C.db}[db]${C.reset} 📦 Restaurando la BD operativa desde ${source.label}`);
-  console.log(`${C.db}[db]${C.reset} ⚠️  La base "${DST_DB}" se reemplaza por completo (drop + create).`);
+  console.log(`${C.db}[db]${C.reset} ⚠️  El contenido de la base "${DST_DB}" se reemplaza (pg_restore --clean); la base no se recrea.`);
   console.log(`${C.db}[db]${C.reset} ℹ️  La réplica analytics (:5436) no se toca.`);
 
   if (!(await ensureOperationalDb())) return 1;
@@ -819,7 +927,7 @@ async function runRestoreDb(file = null) {
 
   const mb = (backup.buffer.length / (1024 * 1024)).toFixed(1);
   console.log(`${C.db}[db]${C.reset} 📥 Aplicando ${backup.files.length} archivo(s), ${mb} MB...`);
-  return restoreBackup(backup, { drop: true }) ? 0 : 1;
+  return (await restoreBackup(backup)) ? 0 : 1;
 }
 
 /** `node dev.js --backup-db`: vuelca la BD operativa `crm` a backups/. */
@@ -1101,7 +1209,7 @@ function printHelp() {
       "  --restore    al montar la BD, restaura analytics desde db/backups",
       "               (forzado: sobrescribe la BD aunque ya tenga datos)",
       "  --backup-db  vuelca la BD operativa `crm` a backups/crm_<fecha>.dump (+ .sha256)",
-      "  --restore-db deja la BD `crm` como el respaldo (drop + create) y sale",
+      "  --restore-db deja la BD `crm` como el respaldo (pg_restore --clean) y sale",
       "               (--restore-db=<ruta> para un respaldo concreto)",
       "  --migrate    al terminar de levantar, restaura la BD operativa `crm` (:5437)",
       "               desde la del ecommerce (`ecommerce_postgres` :5432).",

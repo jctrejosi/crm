@@ -31,8 +31,12 @@ O desde el lanzador:
 .\Activar-Desarrollo.bat -BackupDb    # crea un respaldo y sale
 ```
 
-`--restore-db` borra y recrea la base (`drop database ... with (force)`), así que
-la deja **exactamente** como el respaldo, sin tablas o columnas posteriores.
+`--restore-db` aplica el volcado con `pg_restore --clean --if-exists` sobre la
+base `crm` existente (no la borra ni la recrea): la deja **exactamente** como el
+respaldo, sin tablas o columnas posteriores. El paso de `drop + create` se quitó
+porque en Windows el contenedor podía morir en medio (código 137) y dejar el CRM
+sin base; ahora se espera a `pg_isready`, se crea la base solo si falta y se
+reintenta si el proceso se interrumpe.
 
 ## Notas
 
