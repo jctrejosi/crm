@@ -21,5 +21,20 @@
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false
-  }
+  },
+  // `nest start --watch` compila con ESTE tsconfig, y sin `exclude` arrastraba
+  // los tests y su configuración: en un equipo sin devDependencies el backend no
+  // llegaba a arrancar. Los tests no forman parte de la app que se ejecuta.
+  // Se mantiene la raíz en backend/ (hay .ts en scripts/ y drizzle.config.ts)
+  // para que el destino siga siendo dist/src/main.js.
+  "exclude": [
+    "node_modules",
+    "dist",
+    "coverage",
+    "test",
+    "**/*.spec.ts",
+    "**/*-spec.ts",
+    "**/*.test.ts",
+    "vitest.config.ts"
+  ]
 }

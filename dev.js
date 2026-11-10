@@ -177,6 +177,17 @@ function openLog(name) {
   return fs.openSync(path.join(LOGS_DIR, `${name}.log`), "a");
 }
 
+/** Últimas líneas no vacías del log de un servicio, para diagnosticar un
+ * arranque fallido sin abrir el archivo (en el servidor es la única pista). */
+function tailLog(name, lines = 25) {
+  try {
+    const text = fs.readFileSync(path.join(LOGS_DIR, `${name}.log`), "utf8");
+    return text.split(/\r?\n/).filter((l) => l.trim()).slice(-lines);
+  } catch {
+    return null;
+  }
+}
+
 /** Servicios elegidos por flags (sin flags de selección ⇒ todos). */
 function selectServices(argv) {
   const flags = argv.filter((a) => a.startsWith("--")).map((a) => a.slice(2).toLowerCase());
@@ -865,8 +876,21 @@ async function main() {
   for (const svc of services) {
     if (svc.kind === "docker" || !started[svc.name]) continue;
     const up = await waitForPort(svc.port, 180000);
-    const ok = up ? "✅ listo" : `⚠️  no respondió aún (ver logs/${svc.name}.log)`;
-    console.log(`${C[svc.name] || ""}[${svc.name}]${C.reset} ${ok}`);
+    if (up) {
+      console.log(`${C[svc.name] || ""}[${svc.name}]${C.reset} ✅ listo`);
+      continue;
+    }
+    console.warn(
+      `${C[svc.name] || ""}[${svc.name}]${C.reset} ⚠️  no respondió aún (ver logs/${svc.name}.log)`,
+    );
+    const tail = tailLog(svc.name, 30);
+    if (tail && tail.length) {
+      console.warn(`${C[svc.name] || ""}[${svc.name}]${C.reset} ── últimas líneas de logs/${svc.name}.log ──`);
+      for (const line of tail) console.warn(`   ${line}`);
+      console.warn(`${C[svc.name] || ""}[${svc.name}]${C.reset} ─────────────────────────`);
+    } else {
+      console.warn(`${C[svc.name] || ""}[${svc.name}]${C.reset} (logs/${svc.name}.log no tiene contenido todavía)`);
+    }
   }
 
   // El proyecto ya está arriba: recién ahora se migra la operativa (--migrate).
