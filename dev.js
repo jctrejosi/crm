@@ -205,6 +205,113 @@ function containerRunning(name) {
   return r.status === 0 && (r.stdout || "").trim() === "true";
 }
 
+// ── Docker: CLI correcto y motor disponible ────────────────
+// En Windows el motor puede estar en Docker Desktop (una instancia por usuario)
+// o en un WSL antiguo con la API en loopback. Un `DOCKER_HOST` heredado que ya
+// no responde es la causa mas comun de "Docker no esta disponible", asi que se
+// descarta antes de rendirse: `node dev.js` debe funcionar sin lanzadores
+// externos.
+
+const DOCKER_DESKTOP_BIN = "C:\\Program Files\\Docker\\Docker\\resources\\bin";
+const DOCKER_DESKTOP_EXE = "C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe";
+
+const fileExists = (p) => {
+  try {
+    return Boolean(p) && fs.existsSync(p);
+  } catch {
+    return false;
+  }
+};
+
+/** Carpetas con `docker.exe`, en orden de preferencia. */
+function dockerCliDirs() {
+  if (process.platform !== "win32") return [];
+  const dirs = [DOCKER_DESKTOP_BIN];
+  if (process.env.LOCALAPPDATA) {
+    dirs.push(path.join(process.env.LOCALAPPDATA, "Docker", "Docker", "resources", "bin"));
+  }
+  dirs.push("C:\\DockerCLI");
+  return dirs.filter((dir) => fileExists(path.join(dir, "docker.exe")));
+}
+
+/** Ejecutable de Docker Desktop, si esta instalado. */
+function dockerDesktopExe() {
+  if (process.platform !== "win32") return null;
+  const candidates = [DOCKER_DESKTOP_EXE];
+  if (process.env.LOCALAPPDATA) {
+    candidates.push(path.join(process.env.LOCALAPPDATA, "Docker", "Docker Desktop.exe"));
+  }
+  return candidates.find((exe) => fileExists(exe)) || null;
+}
+
+function dockerAnswers() {
+  const r = spawnSync("docker", ["info"], {
+    stdio: "ignore",
+    timeout: 25000,
+  });
+  return r.status === 0;
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+let dockerReady = null;
+
+/**
+ * Deja `docker` utilizable en este proceso: prioriza el CLI de Docker Desktop,
+ * descarta un DOCKER_HOST que no responde y, en Windows, arranca Docker
+ * Desktop si hace falta. Devuelve true si el motor responde.
+ * `MERCALDAS_NO_DOCKER_AUTOSTART=1` evita arrancarlo automaticamente.
+ */
+async function ensureDocker({ timeoutMs = 120000 } = {}) {
+  if (dockerReady !== null) return dockerReady;
+  const note = (msg) => console.log(`${C.db}[docker]${C.reset} ${msg}`);
+
+  const dirs = dockerCliDirs();
+  if (dirs.length) {
+    const current = (process.env.PATH || "").split(";").map((dir) => dir.trim().toLowerCase());
+    const missing = dirs.filter((dir) => !current.includes(dir.toLowerCase()));
+    if (missing.length) process.env.PATH = `${missing.join(";")};${process.env.PATH || ""}`;
+  }
+
+  if (dockerAnswers()) {
+    dockerReady = true;
+    return true;
+  }
+
+  if (process.env.DOCKER_HOST) {
+    const broken = process.env.DOCKER_HOST;
+    delete process.env.DOCKER_HOST;
+    if (dockerAnswers()) {
+      note(`se descarto DOCKER_HOST=${broken} (no responde); se usa el motor local.`);
+      dockerReady = true;
+      return true;
+    }
+  }
+
+  const exe = process.env.MERCALDAS_NO_DOCKER_AUTOSTART ? null : dockerDesktopExe();
+  if (exe) {
+    note("Docker Desktop no responde; iniciandolo (puede tardar un minuto)...");
+    try {
+      cp.spawn(exe, [], { detached: true, stdio: "ignore", windowsHide: true }).unref();
+    } catch {
+      /* si no se puede lanzar, se informa abajo */
+    }
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      await sleep(3000);
+      if (dockerAnswers()) {
+        note("✅ Docker Desktop listo");
+        dockerReady = true;
+        return true;
+      }
+    }
+    note("⚠️  Docker Desktop no respondio a tiempo; revise su ventana (licencia/login).");
+  }
+
+  dockerReady = false;
+  return false;
+}
+
 // ── Restaurar analytics desde db/backups (multiplataforma) ──
 
 /** Elige el backup a restaurar: el volcado completo más reciente o, si solo
@@ -746,6 +853,9 @@ async function main() {
   console.log("");
 
   const started = {};
+  if (dbSelected) {
+    await ensureDocker();
+  }
   for (const svc of services) {
     const pid = startService(svc, MODE, { forceRestore: RESTORE });
     if (pid) started[svc.name] = pid;

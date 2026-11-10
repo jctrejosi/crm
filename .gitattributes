@@ -1,0 +1,4 @@
+# Lanzadores de Windows: cmd.exe necesita CRLF. Con esto el archivo llega
+# igual a cualquier clone, sin depender de core.autocrlf.
+*.bat text eol=crlf
+*.cmd text eol=crlf
