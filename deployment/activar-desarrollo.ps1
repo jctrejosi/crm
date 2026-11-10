@@ -9,6 +9,8 @@
 #   Activar-Desarrollo.bat -Check                   solo diagnostico, no arranca nada
 #   Activar-Desarrollo.bat -Apps db,backend,web     elige servicios
 #   Activar-Desarrollo.bat -Restore                 restaura analytics si esta vacia
+#   Activar-Desarrollo.bat -BackupDb               vuelca la BD operativa (crm) a backups/ y sale
+#   Activar-Desarrollo.bat -RestoreDb              restaura la BD operativa (drop + create) y arranca
 #   Activar-Desarrollo.bat -Stop                    detiene todo (incluye PostgreSQL)
 #   Activar-Desarrollo.bat -NoPersist               no guarda PATH/DOCKER_HOST del usuario
 #   Activar-Desarrollo.bat -DockerDesktopPath "C:\ruta\Docker Desktop.exe"  ruta manual
@@ -21,6 +23,8 @@ param(
     [switch]$NoPersist,
     [switch]$Check,
     [switch]$Restore,
+    [switch]$BackupDb,
+    [switch]$RestoreDb,
     [switch]$Stop
 )
 $ErrorActionPreference = 'Stop'
@@ -375,6 +379,25 @@ try {
         throw "Docker no esta disponible: $($docker.Detail). Abra Docker Desktop, complete los avisos (licencia, WSL o login) y ejecute de nuevo este lanzador."
     }
     if ($docker.Ok -and -not $NoPersist) { Save-DockerEnvironment $docker.Path }
+
+    if ($BackupDb) {
+        if (-not $docker.Ok) { throw "Docker no esta disponible: $($docker.Detail)." }
+        Write-Host 'Respaldando la base de datos operativa (crm)...'
+        Push-Location $root
+        try { & $node $devJs --backup-db; $code = $LASTEXITCODE } finally { Pop-Location }
+        exit $code
+    }
+    if ($RestoreDb) {
+        if (-not $docker.Ok) { throw "Docker no esta disponible: $($docker.Detail)." }
+        Write-Host 'Restaurando la base de datos operativa (crm) desde el respaldo (drop + create)...'
+        Push-Location $root
+        try { & $node $devJs --restore-db; $code = $LASTEXITCODE } finally { Pop-Location }
+        if ($code -ne 0) {
+            Write-Host "La restauracion fallo (codigo $code). Revise la salida anterior." -ForegroundColor Red
+            exit $code
+        }
+    }
+
     if (($selected -contains 'ia') -and -not $python) {
         Write-Host 'Aviso: Python no esta instalado; el servicio ia no arrancara (el resto si).' -ForegroundColor Yellow
     }

@@ -18,6 +18,8 @@
  *   node crm/dev.js --prod          # backend sin watch; ia/ml sin --reload
  *   node crm/dev.js --ml            # solo clustering + xgboost + uplift
  *   node crm/dev.js --restore       # al montar la BD, la restaura desde db/backups
+ *   node crm/dev.js --backup-db     # vuelca la BD operativa `crm` a backups/crm_<fecha>.dump
+ *   node crm/dev.js --restore-db    # deja la BD `crm` como el respaldo (drop + create) y sale
  *   node crm/dev.js --migrate       # levanta todo y, al final, refresca la BD `crm`
  *                                   #   desde la del ecommerce (destructivo)
  *   node crm/dev.js --stop [flags]  # detiene lo levantado (o solo lo seleccionado)
@@ -57,6 +59,10 @@ const ROOT = __dirname;
 const LOGS_DIR = path.join(ROOT, "logs");
 const PIDS_FILE = path.join(LOGS_DIR, ".pids.json");
 const BACKUPS_DIR = path.join(ROOT, "db", "backups");
+// Respaldos propios de la BD operativa `crm` (--backup-db / --restore-db):
+// solo datos (campañas, catálogo, pedidos, clientes, usuarios). La réplica
+// analytics (:5436) y las imágenes no entran en el volcado.
+const CRM_BACKUPS_DIR = path.join(ROOT, "backups");
 
 // Contenedor/BD de la réplica analytics (restore desde db/backups).
 const DB_CONTAINER = process.env.DB_CONTAINER || "analytics_postgres";
@@ -92,13 +98,21 @@ const VALID_FLAGS = new Set([
   "--help",
   "--restore",
   "--migrate",
+  "--backup-db",
+  "--restore-db",
   "--ml",
   ...SERVICES.map((s) => `--${s.name}`),
 ]);
 
 /** Argumentos no reconocidos: flags `--x` fuera de VALID_FLAGS o cualquier posicional. */
 function unknownFlags(argv) {
-  return argv.filter((a) => !VALID_FLAGS.has(a.toLowerCase()));
+  return argv.filter((a) => {
+    const lower = a.toLowerCase();
+    if (VALID_FLAGS.has(lower)) return false;
+    // `--restore-db=<ruta>` restaura un respaldo concreto de `backups/`.
+    if (lower.startsWith("--restore-db=")) return false;
+    return true;
+  });
 }
 
 // ── Utilidades ──────────────────────────────────────────────
@@ -583,6 +597,264 @@ function migrateOperationalDb() {
   return true;
 }
 
+// ── Respaldo / restauración de la BD operativa `crm` ──────────
+// `--backup-db` vuelca solo la base operativa (campañas, catálogo, pedidos,
+// clientes, usuarios) a `backups/crm_<fecha>.dump` (+ .sha256). La réplica
+// `analytics` (:5436) y las imágenes no entran: analytics ya tiene sus propios
+// respaldos en db/backups y la operativa se reconstruye con esto o con --migrate.
+
+/** Corre psql en el contenedor de la operativa y devuelve { status, stdout, stderr }. */
+function psqlOperational(sql, { database = DST_DB, tuples = false } = {}) {
+  const args = [
+    "exec", DST_CONTAINER,
+    "psql", "-U", "postgres", "-d", database,
+    "-v", "ON_ERROR_STOP=1",
+  ];
+  if (tuples) args.push("-tAc", sql);
+  else args.push("-c", sql);
+  return docker(args, { timeout: 30000 });
+}
+
+/** Fecha local `YYYY-MM-DD_HHmm`, para nombrar los respaldos. */
+function backupStamp(date = new Date()) {
+  const p = (n) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}_${p(date.getHours())}${p(date.getMinutes())}`;
+}
+
+/** ¿La BD operativa `crm` tiene esquema? (tabla clave `campaigns`). */
+function dbIsInitialized() {
+  const r = psqlOperational("SELECT to_regclass('public.campaigns') IS NOT NULL", { tuples: true });
+  if (r.status !== 0) return null;
+  return (r.stdout || "").trim() === "t";
+}
+
+/** Conteos de las tablas clave de la operativa, para verificar el respaldo. */
+function dbCounts() {
+  const r = psqlOperational(
+    "SELECT 'campaigns=' || (SELECT count(*) FROM campaigns)" +
+      " || ' products=' || (SELECT count(*) FROM products)" +
+      " || ' customers=' || (SELECT count(*) FROM customers)" +
+      " || ' orders=' || (SELECT count(*) FROM orders)" +
+      " || ' users=' || (SELECT count(*) FROM users)",
+    { tuples: true },
+  );
+  const out = (r.stdout || "").trim();
+  return out || "(no se pudieron contar las tablas)";
+}
+
+/** Respaldos propios en `backups/`, del más reciente al más antiguo. */
+function listLocalBackups() {
+  if (!fs.existsSync(CRM_BACKUPS_DIR)) return [];
+  return fs
+    .readdirSync(CRM_BACKUPS_DIR, { withFileTypes: true })
+    .filter((e) => e.isFile() && /\.dump$/i.test(e.name))
+    .map((e) => path.join(CRM_BACKUPS_DIR, e.name))
+    .sort((a, b) => path.basename(b).localeCompare(path.basename(a)));
+}
+
+/** Respaldo a restaurar. `explicit` es una ruta (--restore-db=<ruta>). */
+function resolveBackupSource(explicit = null) {
+  if (explicit) {
+    const file = path.isAbsolute(explicit) ? explicit : path.join(ROOT, explicit);
+    if (!fs.existsSync(file)) return { error: `No existe el archivo ${explicit}.` };
+    return { label: path.relative(ROOT, file), files: [file] };
+  }
+  const local = listLocalBackups();
+  if (!local.length) {
+    return {
+      error: `No hay respaldos en ${path.relative(ROOT, CRM_BACKUPS_DIR)}/ (usa node dev.js --backup-db).`,
+    };
+  }
+  return { label: path.relative(ROOT, local[0]), files: [local[0]] };
+}
+
+/** Lee el respaldo y valida su sha256 (el que escribe --backup-db). */
+function loadBackup(source) {
+  const buffer = Buffer.concat(source.files.map((f) => fs.readFileSync(f)));
+  const shaFile = `${source.files[0]}.sha256`;
+  if (fs.existsSync(shaFile)) {
+    const expected = fs.readFileSync(shaFile, "utf8").trim().split(/\s+/)[0];
+    const actual = crypto.createHash("sha256").update(buffer).digest("hex");
+    if (expected && expected !== actual) {
+      return {
+        error: `El respaldo no coincide con su hash (esperado ${expected.slice(0, 12)}…, obtenido ${actual.slice(0, 12)}…).`,
+      };
+    }
+  }
+  return { ...source, buffer };
+}
+
+/** Copia el respaldo al contenedor y lo aplica con pg_restore. */
+function restoreBackup(backup, { drop = false } = {}) {
+  const hostTmp = path.join(LOGS_DIR, "crm_restore.dump");
+  const relTmp = path.relative(ROOT, hostTmp).split(path.sep).join("/");
+  const containerTmp = "/tmp/crm_restore.dump";
+  const { fd } = openLog("db");
+  let status = 1;
+  let failure = null;
+  try {
+    fs.writeFileSync(hostTmp, backup.buffer);
+
+    if (drop) {
+      const del = psqlOperational(`DROP DATABASE IF EXISTS "${DST_DB}" WITH (FORCE)`, { database: "postgres" });
+      if (del.status !== 0) {
+        status = del.status;
+        failure = (del.stderr || "").trim() || "no se pudo borrar la base";
+      } else {
+        const create = psqlOperational(`CREATE DATABASE "${DST_DB}"`, { database: "postgres" });
+        if (create.status !== 0) {
+          status = create.status;
+          failure = (create.stderr || "").trim() || "no se pudo crear la base";
+        }
+      }
+    }
+
+    if (!failure) {
+      const cp = spawnSync("docker", ["cp", relTmp, `${DST_CONTAINER}:${containerTmp}`], {
+        cwd: ROOT,
+        stdio: ["ignore", fd, fd],
+        timeout: 120000,
+      });
+      if (cp.status === 0) {
+        const args = [
+          "exec", DST_CONTAINER,
+          "pg_restore", "-U", "postgres", "-d", DST_DB,
+          "--no-owner", "--no-privileges",
+        ];
+        if (!drop) args.push("--clean", "--if-exists");
+        args.push(containerTmp);
+        const r = spawnSync("docker", args, {
+          stdio: ["ignore", fd, fd],
+          timeout: 900000,
+        });
+        status = r.status;
+        spawnSync("docker", ["exec", DST_CONTAINER, "rm", "-f", containerTmp], {
+          stdio: ["ignore", fd, fd],
+        });
+      } else {
+        status = cp.status;
+        failure = "no se pudo copiar el volcado al contenedor";
+      }
+    }
+  } finally {
+    fs.closeSync(fd);
+    fs.rmSync(hostTmp, { force: true });
+  }
+
+  if (status !== 0) {
+    console.warn(
+      `${C.db}[db]${C.reset} ⚠️  La restauración falló (código ${status}; detalle en logs/db.log).` +
+        (failure ? ` ${failure}` : ""),
+    );
+    return false;
+  }
+
+  console.log(`${C.db}[db]${C.reset} ✅ Respaldo restaurado — ${dbCounts()}`);
+  return true;
+}
+
+/** Asegura Docker y el contenedor `crm_postgres` (puerto :5437). */
+async function ensureOperationalDb() {
+  await ensureDocker();
+  if (!containerRunning(DST_CONTAINER)) {
+    console.log(`${C.db}[db]${C.reset} 🐘 PostgreSQL del CRM (docker compose up -d)...`);
+    const r = spawnSync("docker", ["compose", "up", "-d", "--wait"], {
+      cwd: path.join(ROOT, "db"), stdio: "ignore", timeout: 180000,
+    });
+    if (r.status !== 0) {
+      console.warn(`${C.db}[db]${C.reset} ⚠️  no se pudo levantar la BD (docker compose).`);
+      return false;
+    }
+  }
+  if (!(await waitForPort(5437, 90000))) {
+    console.error(`${C.db}[db]${C.reset} ✘ PostgreSQL no responde en :5437.`);
+    return false;
+  }
+  return true;
+}
+
+/** `node dev.js --restore-db[=<archivo>]`: deja la BD `crm` como el respaldo. */
+async function runRestoreDb(file = null) {
+  const source = resolveBackupSource(file);
+  if (source.error) {
+    console.error(`${C.db}[db]${C.reset} ✘ ${source.error}`);
+    console.error(`${C.db}[db]${C.reset} 💡 Crea un respaldo con: node dev.js --backup-db`);
+    return 1;
+  }
+
+  console.log(`${C.db}[db]${C.reset} 📦 Restaurando la BD operativa desde ${source.label}`);
+  console.log(`${C.db}[db]${C.reset} ⚠️  La base "${DST_DB}" se reemplaza por completo (drop + create).`);
+  console.log(`${C.db}[db]${C.reset} ℹ️  La réplica analytics (:5436) no se toca.`);
+
+  if (!(await ensureOperationalDb())) return 1;
+
+  const backup = loadBackup(source);
+  if (backup.error) {
+    console.error(`${C.db}[db]${C.reset} ✘ ${backup.error}`);
+    return 1;
+  }
+
+  const mb = (backup.buffer.length / (1024 * 1024)).toFixed(1);
+  console.log(`${C.db}[db]${C.reset} 📥 Aplicando ${backup.files.length} archivo(s), ${mb} MB...`);
+  return restoreBackup(backup, { drop: true }) ? 0 : 1;
+}
+
+/** `node dev.js --backup-db`: vuelca la BD operativa `crm` a backups/. */
+async function runBackupDb() {
+  if (!(await ensureOperationalDb())) return 1;
+
+  if (dbIsInitialized() !== true) {
+    console.error(
+      `${C.db}[db]${C.reset} ✘ La BD no tiene datos (falta la tabla campaigns): no hay nada que respaldar.`,
+    );
+    console.error(`${C.db}[db]${C.reset} 💡 Migra primero desde el ecommerce: node dev.js --migrate`);
+    return 1;
+  }
+
+  fs.mkdirSync(CRM_BACKUPS_DIR, { recursive: true });
+  const name = `crm_${backupStamp()}.dump`;
+  const hostFile = path.join(CRM_BACKUPS_DIR, name);
+  const relFile = path.relative(ROOT, hostFile).split(path.sep).join("/");
+  const containerTmp = `/tmp/${name}`;
+
+  console.log(`${C.db}[db]${C.reset} 💾 Volcando la base "${DST_DB}" (solo datos; la réplica analytics no entra)...`);
+
+  const { fd } = openLog("db");
+  try {
+    const dump = spawnSync(
+      "docker",
+      ["exec", DST_CONTAINER, "pg_dump", "-U", "postgres", "-d", DST_DB, "-Fc", "-f", containerTmp],
+      { stdio: ["ignore", fd, fd], timeout: 900000 },
+    );
+    if (dump.status !== 0) {
+      console.warn(`${C.db}[db]${C.reset} ⚠️  pg_dump falló (código ${dump.status}; detalle en logs/db.log).`);
+      return 1;
+    }
+    const cp = spawnSync("docker", ["cp", `${DST_CONTAINER}:${containerTmp}`, relFile], {
+      cwd: ROOT,
+      stdio: ["ignore", fd, fd],
+      timeout: 300000,
+    });
+    if (cp.status !== 0) {
+      console.warn(`${C.db}[db]${C.reset} ⚠️  No se pudo copiar el volcado al host (detalle en logs/db.log).`);
+      return 1;
+    }
+  } finally {
+    fs.closeSync(fd);
+    spawnSync("docker", ["exec", DST_CONTAINER, "rm", "-f", containerTmp], { stdio: "ignore" });
+  }
+
+  const buffer = fs.readFileSync(hostFile);
+  const hash = crypto.createHash("sha256").update(buffer).digest("hex");
+  fs.writeFileSync(`${hostFile}.sha256`, `${hash}\n`);
+
+  const mb = (buffer.length / (1024 * 1024)).toFixed(1);
+  console.log(`${C.db}[db]${C.reset} ✅ ${relFile} (${mb} MB)`);
+  console.log(`${C.db}[db]${C.reset}    ${dbCounts()}`);
+  console.log(`${C.db}[db]${C.reset} 💡 Restaurar: node dev.js --restore-db`);
+  return 0;
+}
+
 // ── Dependencias ────────────────────────────────────────────
 
 // En Windows los venv viven en .venv\Scripts y el intérprete es python.exe;
@@ -805,6 +1077,9 @@ function printHelp() {
       "  --prod       backend sin watch · ia/ml sin --reload · web en preview",
       "  --restore    al montar la BD, restaura analytics desde db/backups",
       "               (forzado: sobrescribe la BD aunque ya tenga datos)",
+      "  --backup-db  vuelca la BD operativa `crm` a backups/crm_<fecha>.dump (+ .sha256)",
+      "  --restore-db deja la BD `crm` como el respaldo (drop + create) y sale",
+      "               (--restore-db=<ruta> para un respaldo concreto)",
       "  --migrate    al terminar de levantar, restaura la BD operativa `crm` (:5437)",
       "               desde la del ecommerce (`ecommerce_postgres` :5432).",
       "               Destructivo: sobrescribe los datos locales del CRM.",
@@ -824,6 +1099,8 @@ function printHelp() {
       "  Restaurar: node crm/dev.js --db --restore   (o: bash crm/db/restore.sh)",
       "  Migrar/refrescar la operativa desde el ecommerce:",
       "    node crm/dev.js --migrate    (o: bash crm/db/migrate-from-ecommerce.sh)",
+      "  Respaldo propio de la operativa: node crm/dev.js --backup-db",
+      "    y restaurar exacto: node crm/dev.js --restore-db",
       "",
       "COMPATIBILIDAD",
       "  Linux · macOS · Windows. Restaurar/migrar no requiere bash.",
@@ -841,6 +1118,13 @@ async function main() {
   const HELP = argv.includes("--help");
   const RESTORE = argv.includes("--restore");
   const MIGRATE = argv.includes("--migrate");
+  const BACKUP_DB = argv.includes("--backup-db");
+  const RESTORE_DB_ARG = argv.find((a) => a === "--restore-db" || a.startsWith("--restore-db="));
+  const RESTORE_DB = Boolean(RESTORE_DB_ARG);
+  const RESTORE_DB_FILE =
+    RESTORE_DB_ARG && RESTORE_DB_ARG.includes("=")
+      ? RESTORE_DB_ARG.slice(RESTORE_DB_ARG.indexOf("=") + 1) || null
+      : null;
 
   const services = selectServices(argv);
   if (HELP) return printHelp();
@@ -853,6 +1137,10 @@ async function main() {
   }
 
   if (STOP) return stopAll(services);
+
+  // Tareas puntuales sobre la BD operativa: ejecutan y terminan (no levantan servicios).
+  if (BACKUP_DB) process.exit(await runBackupDb());
+  if (RESTORE_DB) process.exit(await runRestoreDb(RESTORE_DB_FILE));
 
   const dbSelected = services.some((s) => s.name === "db");
   if ((RESTORE || MIGRATE) && !dbSelected) {

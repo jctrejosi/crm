@@ -26,6 +26,8 @@ necesita.
 node dev.js            # db + backend + web + ia (dev)
 node dev.js --migrate  # además, al terminar de levantar, refresca la BD `crm` desde el ecommerce
 node dev.js --restore  # al montar la BD, fuerza el restore de analytics desde db/backups
+node dev.js --backup-db    # vuelca la BD operativa `crm` a backups/crm_<fecha>.dump
+node dev.js --restore-db   # deja la BD `crm` como el respaldo (drop + create) y sale
 node dev.js --stop     # detiene lo levantado
 node dev.js --help
 ```
@@ -122,6 +124,19 @@ Sin `--restore`, al levantar `--db` solo se restaura si el volumen está vacío.
 `--restore` se fuerza: sobrescribe `analytics` con el backup versionado (verifica
 sha256 y conteos antes de dar por buena la restauración). Todo corre en Node, así
 que funciona igual en Windows (allí `bash`/`restore.sh` no están disponibles).
+
+### Respaldar / restaurar la BD operativa (`crm`)
+
+```bash
+node dev.js --backup-db                # vuelca `crm` a backups/crm_<fecha>.dump (+ .sha256)
+node dev.js --restore-db               # restaura `crm` desde el respaldo más reciente de backups/
+node dev.js --restore-db=backups\xxx.dump   # un respaldo concreto
+```
+
+O desde el lanzador: `.\Activar-Desarrollo.bat -BackupDb` (crea y sale) y
+`.\Activar-Desarrollo.bat -RestoreDb` (restaura y arranca). `--restore-db` borra
+y recrea `crm` (`drop ... with (force)`), así que la deja exactamente como el
+respaldo; la réplica `analytics` (:5436) no se toca.
 
 ## Dependencias externas (no las levanta `dev.js`)
 
