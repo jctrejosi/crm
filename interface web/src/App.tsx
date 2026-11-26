@@ -33,6 +33,25 @@ import {
 } from "./services/market.service";
 import { THEMES, MODES, useTheme } from "./theme";
 
+// Login deshabilitado: la web entra directo a las métricas.
+// Cambia a `true` para volver a exigir inicio de sesión.
+const AUTH_ENABLED = false;
+
+const DEFAULT_USER: UserProfile = {
+  id: 0,
+  email: "crm@mercaldas.com",
+  username: "crm",
+  firstName: "Equipo",
+  lastName: null,
+  fullName: "Equipo Mercaldas",
+  phone: null,
+  isSuperuser: false,
+  isActive: true,
+  lastLoginAt: null,
+  createdAt: "",
+  updatedAt: "",
+};
+
 export type ViewId = "dashboard" | "campaigns" | "mercado";
 
 interface NavItem {
@@ -631,18 +650,20 @@ function TopBar({
                   {item.label}
                 </button>
               ))}
-              <div className="border-t border-gray-100 mt-1 pt-1">
-                <button
-                  onClick={() => {
-                    setUserOpen(false);
-                    onLogout();
-                  }}
-                  className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                >
-                  <LogOut size={14} />
-                  Cerrar sesión
-                </button>
-              </div>
+              {AUTH_ENABLED && (
+                <div className="border-t border-gray-100 mt-1 pt-1">
+                  <button
+                    onClick={() => {
+                      setUserOpen(false);
+                      onLogout();
+                    }}
+                    className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                  >
+                    <LogOut size={14} />
+                    Cerrar sesión
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -678,7 +699,7 @@ export default function App() {
   const [view, navigate] = useViewFromUrl();
   const [cmdOpen, setCmdOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  const [user, setUser] = useState<UserProfile | null>(null);
+  const [user, setUser] = useState<UserProfile | null>(AUTH_ENABLED ? null : DEFAULT_USER);
   const [authChecked, setAuthChecked] = useState(false);
   const [storeLogo, setStoreLogo] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState<string>("Mercaldas");
@@ -695,8 +716,12 @@ export default function App() {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  // Perfil autenticado (cookie httpOnly). Sin sesión se muestra el login.
+  // Perfil autenticado (cookie httpOnly). Con AUTH_ENABLED=false se omite.
   useEffect(() => {
+    if (!AUTH_ENABLED) {
+      setAuthChecked(true);
+      return;
+    }
     authService
       .getProfile()
       .then((profile) => setUser(profile))

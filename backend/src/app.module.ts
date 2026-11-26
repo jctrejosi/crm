@@ -22,6 +22,10 @@ import {
   helmetConfig,
 } from './config';
 
+// Autenticación global deshabilitada: la web del CRM entra directo a las
+// métricas sin login. Cambia a `true` para volver a exigir JWT.
+const AUTH_ENABLED = false;
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -42,7 +46,7 @@ import {
   providers: [
     AppService,
     // Guard global: todo exige JWT salvo lo marcado con @Public().
-    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    ...(AUTH_ENABLED ? [{ provide: APP_GUARD, useClass: JwtAuthGuard }] : []),
   ],
 })
 export class AppModule {}
