@@ -28,7 +28,6 @@ import {
   type ClientFilterOptions,
 } from "../services/campaigns.service";
 import { catalogService, type CatalogProduct, type CatalogCategory, type PluFileImportResult } from "../services/catalog.service";
-import footerLogo from "../assets/logo.png";
 import { getPhonePrefixes, DEFAULT_PHONE_PREFIX, buildInternationalPhone } from "../lib/phone-prefixes";
 
 /* ─── Types ─────────────────────────────────────── */
@@ -2795,26 +2794,6 @@ function CampaignWizard({
           />
         )}
       </div>
-
-      {/* Footer institucional (mismo del panel, fondo blanco y letra negra) */}
-      <footer className="shrink-0 bg-surface border-t border-gray-100">
-        <div className="flex flex-col md:flex-row items-center justify-center gap-x-3 gap-y-0.75 px-3 py-1.5 text-center">
-          <a
-            href="https://dsi.com.co"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center hover:opacity-80 transition-opacity"
-          >
-            <img src={footerLogo} alt="Mercaldas" className="h-3 w-auto object-contain" />
-          </a>
-          <p className="text-[9px] text-gray-500">
-            © 2026 Desarrollado por <span className="font-bold text-gray-800">DSI SA</span> · Todos los derechos reservados
-          </p>
-          <p className="text-[9px]" style={{ color: "rgba(0,0,0,0.45)" }}>
-            Manizales, Caldas, Colombia
-          </p>
-        </div>
-      </footer>
 
       {/* Diseñador de correo (drag & drop) */}
       {emailDesignOpen && (

@@ -1,7 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Loader2, Lock, User as UserIcon } from "lucide-react";
 import { authService, type UserProfile } from "../services/auth.service";
-import logo from "../assets/logo.png";
 
 type Props = {
   onSuccess: (profile: UserProfile) => void;
@@ -41,9 +40,8 @@ export default function Login({ onSuccess }: Props) {
     >
       <div className="w-full max-w-sm bg-surface rounded-2xl shadow-xl border border-gray-200 p-8">
         <div className="flex flex-col items-center gap-3 mb-6">
-          <img src={logo} alt="Mercaldas" className="h-12 w-auto object-contain" />
           <div className="text-center">
-            <h1 className="text-lg font-semibold text-gray-800">CRM Mercaldas</h1>
+            <h1 className="text-lg font-semibold text-gray-800">CRM</h1>
             <p className="text-sm text-gray-500">Inicia sesión para continuar</p>
           </div>
         </div>
@@ -63,7 +61,7 @@ export default function Login({ onSuccess }: Props) {
                 autoComplete="username"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                placeholder="admin@dsi.com.co"
+                placeholder="usuario@crm.local"
                 disabled={loading}
                 autoFocus
                 className="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-sm text-gray-800 outline-none transition-colors focus:border-amber-400 focus:ring-2 focus:ring-amber-200 disabled:opacity-60"
@@ -109,7 +107,7 @@ export default function Login({ onSuccess }: Props) {
         </form>
 
         <p className="mt-6 text-center text-xs text-gray-400">
-          © 2026 DSI SA · Manizales, Caldas
+          © 2026 CRM · Analítica y campañas
         </p>
       </div>
     </div>

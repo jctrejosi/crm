@@ -1,6 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import footerLogo from "./assets/logo.png";
-import sidebarLogo from "./assets/logo.png";
 import {
   LayoutDashboard,
   Send,
@@ -37,13 +35,16 @@ import { THEMES, MODES, useTheme } from "./theme";
 // Cambia a `true` para volver a exigir inicio de sesión.
 const AUTH_ENABLED = false;
 
+// Nombre del proyecto mostrado junto a "CRM".
+const PROJECT_NAME = "Analítica y campañas";
+
 const DEFAULT_USER: UserProfile = {
   id: 0,
-  email: "crm@mercaldas.com",
+  email: "crm@crm.local",
   username: "crm",
   firstName: "Equipo",
   lastName: null,
-  fullName: "Equipo Mercaldas",
+  fullName: "Equipo CRM",
   phone: null,
   isSuperuser: false,
   isActive: true,
@@ -355,15 +356,11 @@ function Sidebar({
   onNavigate,
   collapsed,
   onToggleCollapse,
-  storeLogo,
-  companyName,
 }: {
   current: ViewId;
   onNavigate: (v: ViewId) => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
-  storeLogo?: string | null;
-  companyName: string;
 }) {
   return (
     <aside
@@ -374,52 +371,25 @@ function Sidebar({
         width: collapsed ? 56 : 240,
       }}
     >
-      {/* Logo + título / empresa */}
+      {/* Título + nombre del proyecto (sin logos de marca) */}
       <div
-        className="flex flex-col gap-3 px-4 py-5 border-b shrink-0"
+        className={`flex flex-col gap-1 px-4 py-5 border-b shrink-0 ${collapsed ? "items-center" : ""}`}
         style={{ borderColor: "var(--app-sidebar-border)" }}
       >
-        {/* logo.png junto al título "CRM" */}
-        <div className={`flex items-center gap-2.5 ${collapsed ? "justify-center" : ""}`}>
-          <a
-            href="https://dsi.com.co"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center shrink-0 hover:opacity-80 transition-opacity"
+        <p
+          className="text-base font-extrabold uppercase tracking-wide"
+          style={{ color: "var(--app-sidebar-accent)" }}
+        >
+          CRM
+        </p>
+        {!collapsed && (
+          <p
+            className="text-xs font-semibold truncate"
+            style={{ color: "var(--app-sidebar-fg-muted)" }}
           >
-            <img
-              src={sidebarLogo}
-              alt="Mercaldas"
-              className={`shrink-0 object-contain ${collapsed ? "w-7 h-7" : "h-7 w-auto"}`}
-            />
-          </a>
-          {!collapsed && (
-            <p
-              className="text-base font-extrabold uppercase tracking-wide"
-              style={{ color: "var(--app-sidebar-accent)" }}
-            >
-              CRM
-            </p>
-          )}
-        </div>
-        {/* Logo de la tienda (configurado en el admin) + "Empresa - Nombre" */}
-        <div className={`flex items-center gap-2 min-w-0 ${collapsed ? "justify-center" : ""}`}>
-          {storeLogo && !collapsed && (
-            <img
-              src={storeLogo}
-              alt="Empresa"
-              className={`shrink-0 object-contain ${collapsed ? "w-7 h-7" : "h-7 w-auto"}`}
-            />
-          )}
-          {!collapsed && (
-            <p
-              className="text-xs font-semibold truncate"
-              style={{ color: "var(--app-sidebar-fg-muted)" }}
-            >
-              {companyName}
-            </p>
-          )}
-        </div>
+            {PROJECT_NAME}
+          </p>
+        )}
       </div>
 
       {/* Nav */}
@@ -514,15 +484,15 @@ function TopBar({
         .map((n) => n?.[0] ?? "")
         .join("")
         .toUpperCase() || user.username?.[0]?.toUpperCase() || "U"
-    : "JR";
-  const displayName = user?.fullName || "Jorge Ramírez";
-  const displayEmail = user?.email || "jorge@mercaldas.com";
+    : "C";
+  const displayName = user?.fullName || "Equipo CRM";
+  const displayEmail = user?.email || "crm@crm.local";
 
   return (
     <header className="h-14 bg-surface border-b border-gray-100 flex items-center gap-3 px-4 shrink-0 z-30">
       {/* Breadcrumb */}
       <div className="flex items-center gap-1.5 text-sm">
-        <span className="text-gray-400">Mercaldas</span>
+        <span className="text-gray-400">CRM</span>
         <ChevronRight size={14} className="text-gray-300" />
         <span className="text-gray-800 font-semibold">{LABELS[current]}</span>
       </div>
@@ -701,8 +671,6 @@ export default function App() {
   const [collapsed, setCollapsed] = useState(false);
   const [user, setUser] = useState<UserProfile | null>(AUTH_ENABLED ? null : DEFAULT_USER);
   const [authChecked, setAuthChecked] = useState(false);
-  const [storeLogo, setStoreLogo] = useState<string | null>(null);
-  const [companyName, setCompanyName] = useState<string>("Mercaldas");
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -734,23 +702,6 @@ export default function App() {
     setUser(null);
   }, []);
 
-  // Logo de la tienda configurado en el admin (público: /landing/general).
-  useEffect(() => {
-    const base = import.meta.env.VITE_API_URL || "http://localhost:3100";
-    fetch(`${base}/landing/general`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d: { url?: string } | null) => setStoreLogo(d?.url?.trim() || null))
-      .catch(() => setStoreLogo(null));
-  }, []);
-
-  // Nombre de la empresa/tienda configurado en el admin (público: /admin/settings/public-info).
-  useEffect(() => {
-    const base = import.meta.env.VITE_API_URL || "http://localhost:3100";
-    fetch(`${base}/admin/settings/public-info`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d: { tradeName?: string } | null) => setCompanyName(d?.tradeName?.trim() || "Mercaldas"))
-      .catch(() => {});
-  }, []);
 
   // El dashboard puede pedir navegar a secciones que no existen aquí
   // (pedidos, promociones...); solo navegamos a las vistas disponibles.
@@ -783,8 +734,6 @@ export default function App() {
         onNavigate={navigate}
         collapsed={collapsed}
         onToggleCollapse={() => setCollapsed((c) => !c)}
-        storeLogo={storeLogo}
-        companyName={companyName}
       />
 
       <div className="flex flex-col flex-1 min-w-0">
@@ -797,24 +746,6 @@ export default function App() {
         <main className="flex-1 overflow-y-auto">
           <ViewRenderer view={view} user={user} onNavigate={handleDashboardNavigate} />
         </main>
-        <footer className="shrink-0" style={{ background: "var(--app-footer)" }}>
-          <div className="flex flex-col md:flex-row items-center justify-center gap-x-4 gap-y-1 px-3 py-2 text-center">
-            <a
-              href="https://dsi.com.co"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center hover:opacity-80 transition-opacity"
-            >
-              <img src={footerLogo} alt="Mercaldas" className="h-[25.6px] w-auto object-contain" />
-            </a>
-            <p className="text-xs" style={{ color: "var(--app-footer-fg)" }}>
-              © 2026 Desarrollado por <span className="font-bold" style={{ color: "var(--app-footer-fg-strong)" }}>DSI SA</span> · Todos los derechos reservados
-            </p>
-            <p className="text-xs" style={{ color: "var(--app-footer-fg)" }}>
-              Manizales, Caldas, Colombia
-            </p>
-          </div>
-        </footer>
       </div>
 
       {cmdOpen && (
